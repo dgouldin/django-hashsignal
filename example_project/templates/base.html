@@ -1,0 +1,45 @@
+{% load hashsignal %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Container{% endblock %}</title>
+  <script type="text/javascript">
+  HASH_REPLACEMENT = ':';
+  if (window.location.pathname !== '/a/') {
+      var href = window.location.pathname + window.location.search + window.location.hash.replace('#', HASH_REPLACEMENT);
+      window.location = '/a/#' + href;
+  }
+  </script>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+  <script type="text/javascript" src="{{ MEDIA_URL }}js/jquery.lifecycle.js"></script>
+  <style>
+  .clicked {
+    color: orange;
+  }
+  </style>
+</head>
+<body>
+  <ul id="navbar">
+    <li><a href="/">Homepage</a></li>
+    <li><a href="/page/1/">Page 1</a></li>
+    <li><a href="/page/2/">Page 2</a></li>
+  </ul>
+  <div id="content">
+    <p><span id="dont">don't</span> <span id="clickme">click me</span></p>
+  {% ajaxblock content %}
+  {% endblock %}
+  </div>
+
+  <script type="text/javascript">
+  $(document).ready(function(){
+    // Hook up normal hash "scrollTo" behavior.
+    $.lifecycle.hashchange(function(e, hash) {
+      $.log('hashchange received', hash);
+      $(window).scrollTop($('#' + hash).offset().top);
+    });
+    $.lifecycle.bootstrap();
+  });
+  </script>
+</body>
+</html>

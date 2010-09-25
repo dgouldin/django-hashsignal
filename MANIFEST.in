@@ -1,0 +1,3 @@
+include setup.py README.rst MANIFEST.in LICENSE
+recursive-include hashsignal/media *
+global-exclude *~

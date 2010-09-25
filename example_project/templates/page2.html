@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load hashsignal %}
+
+{% block title %}Page 1{% endblock %}
+
+{% block content %}
+<p>This is the second page. It uses cycle registration for page-specific javascript behavior.  Click the "click me" above and try it out!</p>
+<script type="text/javascript">
+$.lifecycle.register('content', {{ ajaxblocks|json }}, {
+  load: function(cycle) {
+    $('#dont').hide();
+    cycle.bind($('#clickme'), 'click', function(){
+      $(this).toggleClass('clicked');
+    });
+  },
+  unload: function(cycle) {
+    $('#dont').show();
+    $('#clickme').removeClass('clicked');
+    // Note, no need to unbind $('#clickme').click!
+  }
+});
+</script>
+{% endblock %}
