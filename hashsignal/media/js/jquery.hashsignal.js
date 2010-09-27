@@ -190,23 +190,22 @@ Requires
         url = urlParts[0];
 
         var subhash = urlParts[1]; //possibly undefined.
-
         if (url == previousLocation && subhash && type.toLowerCase() === 'get' && !data) {
             // Only hash, not page, needs to be updated
             $(window).trigger('hashsignal.hashchange', [subhash]);
             return;
         }
 
-        callbacks.beforeUpdate();
         //deal with multiple pending requests by always having the 
         // last-requested win, rather than last-responded.
         upcomingLocation = url;
         function makeSuccessor(url) {
           return function(data, status, xhr) {
               if (url != upcomingLocation) {
-                log("Handler for ", url, " fired but last-requested was ", upcomingLocation, " - aborting");
+                log("Success for ", url, " fired but last-requested was ", upcomingLocation, " - aborting");
                 return;
               }
+
               log('updatePage onSuccess');
               replaceBlocks(data);
 
@@ -218,6 +217,7 @@ Requires
           };
         }
 
+        callbacks.beforeUpdate();
         $.ajax({
             data: data,
             error: function(xhr, status, error) {
