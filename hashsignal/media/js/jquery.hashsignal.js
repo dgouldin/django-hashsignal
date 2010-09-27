@@ -4,11 +4,6 @@ Requires
   * http://benalman.com/projects/jquery-hashchange-plugin/
 */
 
-/*
-TODO: 
-    example of runOnce
-    resolve relative URLs into hash
-*/
 (function(window, $, undefined){
     var activeOpts, defaultOpts;
 
