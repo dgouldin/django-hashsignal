@@ -353,9 +353,11 @@ Requires
             liveForms.find('input[type=submit],button[type=submit]').live('click', function(event) {
               $(this).closest("form").get(0).submitter = this;
             });
+            return this;
         },
         hashchange: function(callback) { // callback = function(e, hash) { ... }
             $(window).bind('hashsignal.hashchange', callback);
+            return this;
         },
         registerTransition: function(name, blockNames, opts) {
             log('hashsignal.registerTransition', name, blockNames);
@@ -372,6 +374,7 @@ Requires
                     transitions[blockName][name] = transition;
                 }
             }
+            return this;
         },
         _unloadBlock: function(blockName) {
             log('hashsignal.unloadBlock', blockName);
@@ -382,7 +385,6 @@ Requires
             blockAction('load', blockName);
         }
     };
-    $.hashsignaldbg = methods;
     $.hashsignal = function( method ) {
         // Method calling logic
         if (methods[method]) {
