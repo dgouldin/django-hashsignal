@@ -37,12 +37,12 @@
   <script type="text/javascript">
   $(document).ready(function(){
     // Hook up normal hash "scrollTo" behavior.
-    $.hashsignal('hashchange', function(e, hash) {
+    $.hashsignal.hashchange(function(e, hash) {
       if ($('#' + hash).length >= 0) {
           $(window).scrollTop($('#' + hash).offset().top);
       }
     });
-    $.hashsignal('init', {
+    $.hashsignal.init({
         debug: true,
         beforeUpdate: function() { 
           $("#spinner").show();

@@ -30,7 +30,7 @@ Requires
     var methods, ALWAYS_RELOAD = '__all__', HASH_REPLACEMENT = ':',
         previousLocation = null, upcomingLocation = null,
         transitions = {}, liveForms, document = window.document,
-        location = window.location;
+        location = window.location, history = window.history;
 
     function blockAction(actionName, blockName) { 
         /* DRYs up _unloadBlock and _loadBlock below */
@@ -223,7 +223,7 @@ Requires
             error: function(xhr, status, error) {
                 log('updatePage error');
                 callbacks.errorUpdate(xhr, status, error);
-                location.hash = "#" + previousLocation;
+                history.back();
             },
             success: makeSuccessor(url),
             type: type,
@@ -304,7 +304,7 @@ Requires
         init: function(explicitOpts) {
             activeOpts = $.extend(defaultOpts, explicitOpts);
 
-            $(window).hashchange(function(h){
+            $(window).bind('hashchange', function(h){
                 log('hashchange');
                 updatePage(location.hash.substr(1), 'GET', '', activeOpts);
             });
@@ -385,14 +385,5 @@ Requires
             blockAction('load', blockName);
         }
     };
-    $.hashsignal = function( method ) {
-        // Method calling logic
-        if (methods[method]) {
-            return methods[method].apply(this, Array.prototype.slice.call(arguments, 1));
-        } else if (typeof method === 'object' || ! method) {
-            return methods.init.apply( this, arguments );
-        } else {
-            $.error('Method ' +  method + ' does not exist on jQuery.hashsignal');
-        }
-    };
+    $.hashsignal = methods;
 })(window, jQuery);

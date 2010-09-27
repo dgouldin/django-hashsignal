@@ -6,7 +6,7 @@
 {% block content %}
 <p>This is the second page. It uses transition registration for page-specific javascript behavior.  Click the "click me" above and try it out!</p>
 <script type="text/javascript">
-$.hashsignal('registerTransition', 'content', {{ ajaxblocks|json }}, {
+$.hashsignal.registerTransition('content', {{ ajaxblocks|json }}, {
   load: function(transition) {
     $('#dont').hide();
     transition.bind($('#clickme'), 'click', function(){
