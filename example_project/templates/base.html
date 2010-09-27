@@ -34,11 +34,11 @@
   <script type="text/javascript">
   $(document).ready(function(){
     // Hook up normal hash "scrollTo" behavior.
-    $.lifecycle.hashchange(function(e, hash) {
+    $.hashsignal('hashchange', function(e, hash) {
       $.log('hashchange received', hash);
       $(window).scrollTop($('#' + hash).offset().top);
     });
-    $.lifecycle.bootstrap();
+    $.hashsignal('init');
   });
   </script>
 </body>

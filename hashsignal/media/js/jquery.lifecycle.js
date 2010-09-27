@@ -1,233 +1,60 @@
-jQuery.log = function() {
-    var args = [new Date()].concat(Array.prototype.slice.apply(arguments));
-    if (window.console) {
-        window.console.log(args);
-    } else {
-        return; // TODO: replacement for console.log
+/*
+Requires
+  * jQuery hashchange event - v1.2 - 2/11/2010
+  * http://benalman.com/projects/jquery-hashchange-plugin/
+*/
+
+/*
+TODO: 
+    example of runOnce
+    resolve relative URLs into hash
+*/
+(function(window, $, undefined){
+    var activeOpts, defaultOpts;
+
+    function log() {
+        if (!(activeOpts && activeOpts.debug)) {
+            return;
+        }
+        var args = [new Date(), "hashsignal"].concat(Array.prototype.slice.apply(arguments));
+        if (window.console) {
+            window.console.log(args);
+        } else {
+         return; // TODO: replacement for console.log
+        }
     }
-};
+    
+    defaultOpts = {
+        excludeSelector: '.no-ajax',
+        beforeUpdate: function() { log('beforeUpdate'); },
+        afterUpdate: function() { log('afterUpdate'); },
+        errorUpdate: function() { log('errorUpdate'); },
+        debug: false
+    };
 
-jQuery.lifecycle = {
-    ALWAYS_RELOAD: '__all__',
-    HASH_REPLACEMENT: ':',
-    previousLocation: null,
-    hashchange: function(callback) { // callback = function(e, hash) { ... }
-        jQuery(window).bind('lifecycle.hashchange', callback);
-    },
-    updatePage: function(url, type, data, opts) {
-        type = type || 'GET';
-        data = data || '';
-        callbacks = $.extend({
-            beforeUpdate: function() { return; },
-            afterUpdate: function() { return; },
-            errorUpdate: function() { return; },
-        }, opts);
+    var methods, ALWAYS_RELOAD = '__all__', HASH_REPLACEMENT = ':',
+        previousLocation = null, upcomingLocation = null,
+        transitions = {}, liveForms, document = window.document,
+        location = window.location;
 
-        var urlParts = url.split(jQuery.lifecycle.HASH_REPLACEMENT);
-        url = urlParts[0];
-        var hash = null;
-        if (urlParts.length > 1) {
-            hash = urlParts[1];
-        }
-
-        if (url == jQuery.lifecycle.previousLocation && hash && type.toLowerCase() === 'get' && !data) {
-            // Only hash, not page, needs to be updated
-            jQuery(window).trigger('lifecycle.hashchange', [hash]);
+    function blockAction(actionName, blockName) { 
+        /* DRYs up _unloadBlock and _loadBlock below */
+        var transition = transitions[blockName];
+        if (!transition) {
             return;
         }
-
-        callbacks.beforeUpdate();
-        //deal with multiple pending requests by always having the 
-        // last-requested win, rather than last-responded.
-        jQuery.lifecycle.upcomingLocation = url;
-        function makeSuccessor(url) {
-          return function(data, status, xhr) {
-              if (url != jQuery.lifecycle.upcomingLocation) {
-                jQuery.log("Handler for ", url, " fired but last-requested was ", jQuery.lifecycle.upcomingLocation, " - aborting");
-                return;
-              }
-              jQuery.log('updatePage success');
-              jQuery.lifecycle.replaceBlocks(data);
-
-              if (hash) {
-                  jQuery(window).trigger('lifecycle.hashchange', [hash]);
-              }
-              jQuery.lifecycle.previousLocation = url;
-              callbacks.afterUpdate();
-          }
-        }
-
-        jQuery.ajax({
-            data: data,
-            error: function(xhr, status, error) {
-                jQuery.log('updatePage error');
-                callbacks.errorUpdate();
-            },
-            success: makeSuccessor(url),
-            type: type,
-            url: url
-        });
-    },
-    bootstrap: function(opts) {
-        var o = jQuery.extend({
-            selector: '.no-ajax',
-            beforeUpdate: function() { jQuery.log('beforeUpdate'); },
-            afterUpdate: function() { jQuery.log('afterUpdate'); },
-            errorUpdate: function() { jQuery.log('errorUpdate'); },
-        }, opts);
-        jQuery(window).bind('hashchange', function(h){
-            jQuery.log('hashchange');
-            jQuery.lifecycle.updatePage(location.hash.substr(1), 'GET', '', o);
-        });
-        if (location.hash && location.hash !== '#') {
-            jQuery.log('hash', location.hash);
-            jQuery.lifecycle.updatePage(location.hash.substr(1), 'GET', '', o);
-        }
-        jQuery('a:not(' + o.selector + ')').live('click', function(){
-            var href = jQuery(this).attr('href').replace('#', jQuery.lifecycle.HASH_REPLACEMENT);
-            if (href.indexOf(jQuery.lifecycle.HASH_REPLACEMENT) === 0) {
-                // link is relative to the current page
-                href = window.location.hash.substr(1).split(jQuery.lifecycle.HASH_REPLACEMENT)[0] + href;
-            }
-            window.location.hash = '#' + href;
-            return false;
-        });
-        var forms = jQuery('form:not(' + o.selector + ')')
-        forms.live('submit', function(event){
-            var url = jQuery(this).attr('action');
-            var type = jQuery(this).attr('method');
-            var data = jQuery(this).serialize();
-            var submitter = this.submitter;
-            if (submitter) {
-              data += "&" + jQuery(submitter).attr("name") + "=" + jQuery(submitter).attr("value");
-            }
-            jQuery.log("submit event", data);
-            if (url === '.') {
-                url = window.location.hash.substr(1);
-            }
-
-            if (type.toLowerCase() === 'get') {
-                url = url.substring(0, url.indexOf('?')) || url;
-                url += '?' + data;
-                window.location.hash = '#' + url;
-            } else {
-                // TODO: how does a post affect the hash fragment?
-                o.beforeUpdate();
-                jQuery.lifecycle.updatePage(url, type, data, o.afterUpdate, o.errorUpdate);
-            }
-            return false;
-        });
-        //make sure the submitting button is included in the form data.
-        forms.find('input[type=submit],button[type=submit]').live('click', function(event) {
-          $(this).closest("form").get(0).submitter = this;
-        })
-    },
-    cycles: {},
-    Cycle: function(opts) {
-        this.hasRun = false;
-        this.o = jQuery.extend({
-            load: function(){ return; }, // no-op
-            unload: function() { return; },
-            runOnce: false
-        }, opts);
-
-        this.events = [];
-        this.timeouts = [];
-        this.intervals = [];
-        this.scripts = {};
-
-        // shims
-        this.bind = function(obj, eventType, eventData, handler) {
-            this.events.push([obj, eventType, handler]);
-            return jQuery(obj).bind(eventType, eventData, handler);
-        };
-        this.setTimeout = function(callback, timeout) {
-            this.timeouts.push(setTimeout(callback, timeout));
-        };
-        this.setInterval = function(callback, timeout) {
-            this.intervals.push(setInterval(callback, timeout));
-        };
-        this.clearTimeout = window.clearTimeout;
-        this.clearInterval = window.clearInterval;        
-        this.addScript = function(src, loadOnce) {
-            loadOnce = loadOnce === undefined ? true : loadOnce;
-            if (!(loadOnce && this.scripts[src])) {
-                var script = document.createElement('script');
-                script.type = 'text/javascript';
-                script.src = src;
-                script = jQuery(script);
-
-                var that = this;
-                script.load(function(){
-                    that.scripts[src] = true;
-                    jQuery(this).unbind('load');
-                });
-
-                jQuery('body').append(script);
-            }
-        };
-
-        this.load = function() {
-            if (!(this.hasRun && this.runOnce)) {
-                this.o.load(this);
-            }
-            this.hasRun = true;
-        };
-        this.unload = function() {
-            if (!this.runOnce) {
-                var i;
-                for (i = 0; i < this.events.length; i++) {
-                    var e = this.events[i];
-                    jQuery(e[0]).unbind(e[1], e[2]);
-                }
-                for (i = 0; i < this.timeouts.length; i++) {
-                    clearTimeout(this.timeouts[i]);
-                }
-                for (i = 0; i < this.intervals.length; i++) {
-                    clearInterval(this.intervals[i]);
-                }
-                this.o.unload(this);
-            }
-        };
-    },
-    register: function(name, blockNames, opts) {
-        jQuery.log('lifecycle.register', name, blockNames);
-        var cycle = new jQuery.lifecycle.Cycle(opts);
-        if (!!opts.alwaysReload) {
-            blockNames = [jQuery.lifecycle.ALWAYS_RELOAD];
-        }
-        for (var i = 0; i < blockNames.length; i++) {
-            var blockName = blockNames[i];
-            if (jQuery.lifecycle.cycles[blockName] === undefined) {
-                jQuery.lifecycle.cycles[blockName] = {};
-            }
-            if (jQuery.lifecycle.cycles[blockName][name] === undefined) {
-                jQuery.lifecycle.cycles[blockName][name] = cycle;
-            }
-        }
-    },
-    _blockAction: function(blockAction, blockName) {
-        if (!jQuery.lifecycle.cycles[blockName]) {
-            return;
-        }
-        for (var name in jQuery.lifecycle.cycles[blockName]) {
-            if (jQuery.lifecycle.cycles[blockName].hasOwnProperty(name)) {
-                jQuery.lifecycle.cycles[blockName][name][blockAction]();
-                if( blockAction === 'unload' && !jQuery.lifecycle.cycles[blockName][name].o.runOnce && blockName != jQuery.lifecycle.ALWAYS_RELOAD) {
-                    delete jQuery.lifecycle.cycles[blockName][name];
+        for (var name in transition) {
+            if (transition.hasOwnProperty(name)) {
+                transition[name][actionName]();
+                /* Clean up old transitions which are no longer needed. */
+                if( actionName === 'unload' && !transition[name].o.runOnce && blockName != ALWAYS_RELOAD) {
+                    delete transition[name];
                 }
             }
         }
-    },
-    unloadBlock: function(blockName) {
-        jQuery.log('lifecycle.unloadBlock', blockName);
-        jQuery.lifecycle._blockAction('unload', blockName);
-    },
-    loadBlock: function(blockName) {
-        jQuery.log('lifecycle.loadBlock', blockName);
-        jQuery.lifecycle._blockAction('load', blockName);
-    },
-    getOldBlocks: function(doc) {
+    }
+
+    function getOldBlocks(doc) {
         function walker(root, handle) {
           handle(root);
           for (var i=0, c=root.childNodes.length; i < c; i++) {
@@ -248,33 +75,34 @@ jQuery.lifecycle = {
 
         var blocks = {};
         doc = doc || document;
-        blockWalker(doc, function(name, hash, isStart, node) {
+        blockWalker(doc, function(name, signature, isStart, node) {
             if (blocks[name] === undefined) {
                 blocks[name] = {
                     nodes: [null, null],
-                    hash: hash
+                    signature: signature
                 };
             }
             blocks[name].nodes[isStart ? 0 : 1] = node;
         });
         return blocks;
-    },
-    getNewBlocks: function(html) {
+    }
+    
+    function getNewBlocks(html) {
         var blocker = /<!-- (end)?block ([^ ]*) ([0123456789abcdef]{32} )?-->/gi;
-        var starts = []; //stack of {name:a, hash:x, start:y};
+        var starts = []; //stack of {name:a, signature:x, start:y};
         var closing;
-        var blocks = {}; //name: {hash:x, html:z}
+        var blocks = {}; //name: {signature:x, html:z}
 
         function last() {
           return starts[starts.length-1];
         }
 
-        html.replace(blocker, function(matched, ending, blockName, hashMaybe, offset, fullString) {
+        html.replace(blocker, function(matched, ending, blockName, signatureMaybe, offset, fullString) {
           if (ending && starts.length === 0) {
             throw "Unexpected block nesting on match: " + matched;
           }
-          if (!ending && !hashMaybe) {
-            throw "Expected hash on start of block";
+          if (!ending && !signatureMaybe) {
+            throw "Expected signature on start of block";
           }
 
           if (ending) {
@@ -282,13 +110,13 @@ jQuery.lifecycle = {
             starts.length = starts.length-1;
             blocks[closing.name] = {
               html: fullString.slice(closing.start, offset),
-              hash: closing.hash
+              signature: closing.signature
             };
           } else {
             starts.push({
               name: blockName,
               start: offset + matched.length,
-              hash: hashMaybe
+              signature: signatureMaybe
             });
           }
         });
@@ -296,9 +124,10 @@ jQuery.lifecycle = {
           throw "Unclosed block: " + last().name;
         }
         return blocks;
-    },
-    replaceBlocks: function(html) {
-        jQuery.log('replaceBlocks');
+    }
+    
+    function replaceBlocks(html) {
+        log('replaceBlocks');
 
         function siblingsBetween(start, end) {
             var siblings = [];
@@ -312,37 +141,38 @@ jQuery.lifecycle = {
             return siblings;
         }
 
-        var oldBlocks = jQuery.lifecycle.getOldBlocks();
-        var newBlocks = jQuery.lifecycle.getNewBlocks(html);
+        var oldBlocks = getOldBlocks();
+        var newBlocks = getNewBlocks(html);
 
-        jQuery.lifecycle.unloadBlock(jQuery.lifecycle.ALWAYS_RELOAD);
+        methods._unloadBlock(ALWAYS_RELOAD);
 
         for (var blockName in newBlocks) {
             if (blockName in oldBlocks) {
                 var oldBlock = oldBlocks[blockName];
                 var newBlock = newBlocks[blockName];
-                if (oldBlock.hash === newBlock.hash) {
-                    jQuery.log('Not replacing block, hashes match.', blockName, oldBlock.hash);
+                if (oldBlock.signature === newBlock.signature) {
+                    log('Not replacing block, signatures match.', blockName, oldBlock.signature);
                     continue; // The block is the same, no need to swap out the content.
                 }
 
-                jQuery.lifecycle.unloadBlock(blockName);
-                jQuery(siblingsBetween(oldBlock.nodes[0], oldBlock.nodes[1])).remove();
+                methods._unloadBlock(blockName);
+                $(siblingsBetween(oldBlock.nodes[0], oldBlock.nodes[1])).remove();
 
-                jQuery.log('Replacing block', blockName, newBlock.html);
-                // loadBlock to be called from inside newBlock.html
-                jQuery(oldBlock.nodes[0]).after(newBlock.html +
+                log('Replacing block', blockName, newBlock.html);
+                // methods._loadBlock must be called from inside newBlock.html so that mutations block as 
+                //   would normally happen with inline scripts.
+                $(oldBlock.nodes[0]).after(newBlock.html +
                 '<script type="text/javascript">' +
-                '  jQuery.lifecycle.loadBlock("' + blockName.replace('"', '\\"') + '");' +
+                '  jQuery.hashsignal(\'_loadBlock\', "' + blockName.replace('"', '\\"') + '");' +
                 '</scr' + 'ipt>'); // oh javascript ...
-                
-                // update block hash
-                jQuery(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + newBlock.hash + "-->");
+
+                // update block signature
+                $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + newBlock.signature + "-->");
             } else {
-                jQuery.log('WARNING: unmatched block', blockName);
+                log('WARNING: unmatched block', blockName);
             }
         }
-        jQuery.lifecycle.loadBlock(jQuery.lifecycle.ALWAYS_RELOAD);
+        methods._loadBlock(ALWAYS_RELOAD);
 
         // update title
         var titleRe = /<title>(.*)<\/title>/;
@@ -350,12 +180,222 @@ jQuery.lifecycle = {
         if (titleMatch) {
             document.title = titleMatch[1];
         }
-    },
-    loadCurrentBlocks: function() {
-        var oldBlocks = jQuery.lifecycle.getOldBlocks();
-        for (var blockName in oldBlocks) {
-            jQuery.lifecycle.loadBlock(blockName);
-        }
-        jQuery.lifecycle.loadBlock(jQuery.lifecycle.ALWAYS_RELOAD);
     }
-};
+
+    function updatePage(url, type, data, opts) {
+        type = type || 'GET';
+        data = data || '';
+        var callbacks = $.extend({
+            beforeUpdate: function() { return; },
+            afterUpdate: function() { return; },
+            errorUpdate: function() { return; }
+        }, opts);
+
+        var urlParts = url.split(HASH_REPLACEMENT);
+        url = urlParts[0];
+
+        var subhash = urlParts[1]; //possibly undefined.
+
+        if (url == previousLocation && subhash && type.toLowerCase() === 'get' && !data) {
+            // Only hash, not page, needs to be updated
+            $(window).trigger('hashsignal.hashchange', [subhash]);
+            return;
+        }
+
+        callbacks.beforeUpdate();
+        //deal with multiple pending requests by always having the 
+        // last-requested win, rather than last-responded.
+        upcomingLocation = url;
+        function makeSuccessor(url) {
+          return function(data, status, xhr) {
+              if (url != upcomingLocation) {
+                log("Handler for ", url, " fired but last-requested was ", upcomingLocation, " - aborting");
+                return;
+              }
+              log('updatePage onSuccess');
+              replaceBlocks(data);
+
+              if (subhash) {
+                  $(window).trigger('hashsignal.hashchange', [subhash]);
+              }
+              previousLocation = url;
+              callbacks.afterUpdate();
+          };
+        }
+
+        $.ajax({
+            data: data,
+            error: function(xhr, status, error) {
+                log('updatePage error');
+                callbacks.errorUpdate();
+            },
+            success: makeSuccessor(url),
+            type: type,
+            url: url
+        });
+    }
+
+    function Transition(opts) {
+        this.hasRun = false;
+        this.o = $.extend({
+            load: function(){ return; },
+            unload: function() { return; },
+            runOnce: false
+        }, opts);
+
+        this.events = [];
+        this.timeouts = [];
+        this.intervals = [];
+        this.scripts = {};
+
+        // shims
+        this.bind = function(obj, eventType, eventData, handler) {
+            this.events.push([obj, eventType, handler]);
+            return $(obj).bind(eventType, eventData, handler);
+        };
+        this.setTimeout = function(callback, timeout) {
+            this.timeouts.push(window.setTimeout(callback, timeout));
+        };
+        this.setInterval = function(callback, timeout) {
+            this.intervals.push(window.setInterval(callback, timeout));
+        };
+        this.clearTimeout = window.clearTimeout;
+        this.clearInterval = window.clearInterval;
+        
+        this.addScript = function(src, loadOnce) {
+            loadOnce = loadOnce === undefined ? true : loadOnce;
+            if (!(loadOnce && this.scripts[src])) {
+                var script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.src = src;
+                script = $(script);
+
+                var that = this;
+                script.load(function(){
+                    that.scripts[src] = true;
+                    $(this).unbind('load');
+                });
+
+                $('body').append(script);
+            }
+        };
+
+        this.load = function() {
+            if (!(this.hasRun && this.runOnce)) {
+                this.o.load(this);
+            }
+            this.hasRun = true;
+        };
+        this.unload = function() {
+            if (!this.runOnce) {
+                var i;
+                for (i = 0; i < this.events.length; i++) {
+                    var e = this.events[i];
+                    $(e[0]).unbind(e[1], e[2]);
+                }
+                for (i = 0; i < this.timeouts.length; i++) {
+                    window.clearTimeout(this.timeouts[i]);
+                }
+                for (i = 0; i < this.intervals.length; i++) {
+                    window.clearInterval(this.intervals[i]);
+                }
+                this.o.unload(this);
+            }
+        };
+    }
+
+    methods = {
+        init: function(explicitOpts) {
+            activeOpts = $.extend(defaultOpts, explicitOpts);
+
+            $(window).bind('hashchange', function(h){
+                log('hashchange');
+                updatePage(location.hash.substr(1), 'GET', '', activeOpts);
+            });
+
+            if (location.hash && location.hash !== '#') {
+                log('existing hash', location.hash);
+                updatePage(location.hash.substr(1), 'GET', '', activeOpts);
+            }
+            $('a:not(' + activeOpts.excludeSelector + ')').live('click', function(){
+                var href = $(this).attr('href').replace('#', HASH_REPLACEMENT);
+                if (href.indexOf(HASH_REPLACEMENT) === 0) {
+                    // link is relative to the current page
+                    href = window.location.hash.substr(1).split(HASH_REPLACEMENT)[0] + href;
+                }
+                window.location.hash = '#' + href;
+                return false;
+            });
+            liveForms = $('form:not(' + activeOpts.excludeSelector + ')');
+            liveForms.live('submit', function(event){
+                var url = $(this).attr('action');
+                var type = $(this).attr('method');
+                var data = $(this).serialize();
+                var submitter = this.submitter;
+                if (submitter) {
+                    data += (data.length === 0 ? "?" : "&") + (
+                        encodeURIComponent($(submitter).attr("name")) 
+                        + "=" + encodeURIComponent($(submitter).attr("value"))
+                    );
+                }
+                log("form sumission:", data);
+                if (url === '.') {
+                    url = window.location.hash.substr(1);
+                }
+
+                if (type.toLowerCase() === 'get') {
+                    url = url.substring(0, url.indexOf('?')) || url;
+                    url += '?' + data;
+                    window.location.hash = '#' + url;
+                } else {
+                    // TODO: how does a post affect the hash fragment?
+                    activeOpts.beforeUpdate();
+                    updatePage(url, type, data, activeOpts.afterUpdate, activeOpts.errorUpdate);
+                }
+                return false;
+            });
+            //make sure the submitting button is included in the form data.
+            liveForms.find('input[type=submit],button[type=submit]').live('click', function(event) {
+              $(this).closest("form").get(0).submitter = this;
+            });
+        },
+        hashchange: function(callback) { // callback = function(e, hash) { ... }
+            $(window).bind('hashsignal.hashchange', callback);
+        },
+        registerTransition: function(name, blockNames, opts) {
+            log('hashsignal.registerTransition', name, blockNames);
+            var transition = new Transition(opts);
+            if (!!opts.alwaysReload) {
+                blockNames = [ALWAYS_RELOAD];
+            }
+            for (var i = 0; i < blockNames.length; i++) {
+                var blockName = blockNames[i];
+                if (transitions[blockName] === undefined) {
+                    transitions[blockName] = {};
+                }
+                if (transitions[blockName][name] === undefined) {
+                    transitions[blockName][name] = transition;
+                }
+            }
+        },
+        _unloadBlock: function(blockName) {
+            log('hashsignal.unloadBlock', blockName);
+            blockAction('unload', blockName);
+        },
+        _loadBlock: function(blockName) {
+            log('hashsignal.loadBlock', blockName);
+            blockAction('load', blockName);
+        }
+    };
+    $.hashsignaldbg = methods;
+    $.hashsignal = function( method ) {
+        // Method calling logic
+        if (methods[method]) {
+            return methods[method].apply(this, Array.prototype.slice.call(arguments, 1));
+        } else if (typeof method === 'object' || ! method) {
+            return methods.init.apply( this, arguments );
+        } else {
+            $.error('Method ' +  method + ' does not exist on jQuery.hashsignal');
+        }
+    };
+})(window, jQuery);
