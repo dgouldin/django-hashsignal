@@ -10,7 +10,7 @@ urlpatterns = patterns('',
         {'template': 'page1.html'}),
     url(r'^page/2/$', 'django.views.generic.simple.direct_to_template',
         {'template': 'page2.html'}),
-
+    url(r'error/$', 'views.exampleError'),
     url(r'^a/$', 'django.views.generic.simple.direct_to_template',
         {'template': 'base.html'}),
     url(r'^site_media/(?P<path>.*)$', 'django.views.static.serve',

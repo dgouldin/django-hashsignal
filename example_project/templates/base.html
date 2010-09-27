@@ -12,6 +12,7 @@
   }
   </script>
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+  <script type="text/javascript" src="{{ MEDIA_URL }}js/jquery.ba-hashchange.min.js"></script>
   <script type="text/javascript" src="{{ MEDIA_URL }}js/jquery.hashsignal.js"></script>
   <style>
   .clicked {
@@ -24,20 +25,43 @@
     <li><a href="/">Homepage</a></li>
     <li><a href="/page/1/">Page 1</a></li>
     <li><a href="/page/2/">Page 2</a></li>
+    <li><a href="/error/">Server Exception</a></li>
   </ul>
   <div id="content">
     <p><span id="dont">don't</span> <span id="clickme">click me</span></p>
   {% ajaxblock content %}
   {% endblock %}
   </div>
+  <div id="spinner">Loading...</div>
 
   <script type="text/javascript">
   $(document).ready(function(){
     // Hook up normal hash "scrollTo" behavior.
     $.hashsignal('hashchange', function(e, hash) {
-      $(window).scrollTop($('#' + hash).offset().top);
+      if ($('#' + hash).length >= 0) {
+          $(window).scrollTop($('#' + hash).offset().top);
+      }
     });
-    $.hashsignal('init');
+    $.hashsignal('init', {
+        debug: true,
+        beforeUpdate: function() { 
+          $("#spinner").show();
+        },
+        afterUpdate: function() {
+          $("#spinner").hide();
+        },
+        errorUpdate: function(xhr, status, error) { 
+          $("#spinner").hide();
+          var reason;
+          //Only works with Django DEBUG=True
+          if (xhr.getResponseHeader('content-type') === 'text/html') {
+            reason = $(xhr.responseText).find(".exception_value").text();
+          }
+          alert("Failed: (" + status + ") " +
+            (reason ? reason : "unknown")
+          );
+        }
+    });
   });
   </script>
 </body>

@@ -189,7 +189,7 @@ Requires
         var urlParts = url.split(HASH_REPLACEMENT);
         url = urlParts[0];
 
-        var subhash = urlParts[1]; //possibly undefined.
+        var subhash = urlParts[1] || '';
         if (url == previousLocation && subhash && type.toLowerCase() === 'get' && !data) {
             // Only hash, not page, needs to be updated
             $(window).trigger('hashsignal.hashchange', [subhash]);
@@ -222,7 +222,8 @@ Requires
             data: data,
             error: function(xhr, status, error) {
                 log('updatePage error');
-                callbacks.errorUpdate();
+                callbacks.errorUpdate(xhr, status, error);
+                location.hash = "#" + previousLocation;
             },
             success: makeSuccessor(url),
             type: type,
@@ -303,7 +304,7 @@ Requires
         init: function(explicitOpts) {
             activeOpts = $.extend(defaultOpts, explicitOpts);
 
-            $(window).bind('hashchange', function(h){
+            $(window).hashchange(function(h){
                 log('hashchange');
                 updatePage(location.hash.substr(1), 'GET', '', activeOpts);
             });
