@@ -334,11 +334,10 @@ Requires
                         + "=" + encodeURIComponent($(submitter).attr("value"))
                     );
                 }
-                log("form sumission:", data);
+                log("form submission:", data);
                 if (url === '.') {
                     url = window.location.hash.substr(1);
                 }
-
                 if (type.toLowerCase() === 'get') {
                     url = url.substring(0, url.indexOf('?')) || url;
                     url += '?' + data;
@@ -346,7 +345,7 @@ Requires
                 } else {
                     // TODO: how does a post affect the hash fragment?
                     activeOpts.beforeUpdate();
-                    updatePage(url, type, data, activeOpts.afterUpdate, activeOpts.errorUpdate);
+                    updatePage(url, type, data, activeOpts);
                 }
                 return false;
             });
