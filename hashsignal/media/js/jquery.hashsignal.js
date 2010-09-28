@@ -162,8 +162,8 @@ Requires
                 //   would normally happen with inline scripts.
                 $(oldBlock.nodes[0]).after(newBlock.html +
                 '<script type="text/javascript">' +
-                '  jQuery.hashsignal(\'_loadBlock\', "' + blockName.replace('"', '\\"') + '");' +
-                '</scr' + 'ipt>'); // oh javascript ...
+                '  jQuery.hashsignal._loadBlock("' + blockName.replace('"', '\\"') + '");' +
+                '</scr' + 'ipt>');
 
                 // update block signature
                 $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + newBlock.signature + "-->");
