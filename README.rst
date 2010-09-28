@@ -1,1 +1,1 @@
-Experimental version for collaboration purposes only. Significant backwards incompatible refactoring is imminent!
+Documentation coming soon - check out example_project for now.
