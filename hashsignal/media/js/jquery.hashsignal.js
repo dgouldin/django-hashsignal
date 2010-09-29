@@ -364,9 +364,26 @@ Requires
             return this;
         },
         hash: function(subhash) {
+            var ret;
+            if (undefined === subhash) {
+                /* window.location.hash is a bit fiddly - if hash is empty, it returns "",
+                  but if it is non-empty, it returns "#hash".
+                  
+                  And when assigning, "foo" and "#foo" are treated as equivalent.
+                */
+                ret = location.hash.split(HASH_REPLACEMENT)[1];
+                return ret ? ("#" + ret) : "";
+            }
+            if (0 === subhash.indexOf("#")) {
+                subhash = subhash.substr(1);
+            }
             var parts = location.hash.substr(1).split(HASH_REPLACEMENT);
-            parts[1] = subhash;
-            location.hash = parts.join(HASH_REPLACEMENT);
+            if (0 === subhash.length) {
+                location.hash = parts[0];
+            } else {
+                parts[1] = subhash;
+                location.hash = parts.join(HASH_REPLACEMENT);
+            }
             return subhash;
         },
         registerTransition: function(name, blockNames, opts) {

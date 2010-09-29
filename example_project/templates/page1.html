@@ -5,6 +5,7 @@
 {% block content %}
 <p style="margin-bottom: 1000px;">This is the first page. It contains an <a href="#bottom">anchor link</a> to another element in the same page.</p>
 <p id="bottom">Welcome to the bottom of the document!</p>
-<button onclick="$.hashsignal.hash('navbar');">Go back to the top.</button>
+<button onclick="$.hashsignal.hash('#navbar');">Go back to the top.</button>
+<button onclick="$.hashsignal.hash('#');">Remove hash.</button>
 {% endblock %}
 
