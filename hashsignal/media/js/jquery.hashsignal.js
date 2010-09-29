@@ -321,9 +321,9 @@ Requires
                 var href = $(this).attr('href').replace('#', HASH_REPLACEMENT);
                 if (href.indexOf(HASH_REPLACEMENT) === 0) {
                     // link is relative to the current page
-                    href = window.location.hash.substr(1).split(HASH_REPLACEMENT)[0] + href;
+                    href = location.hash.substr(1).split(HASH_REPLACEMENT)[0] + href;
                 }
-                window.location.hash = '#' + href;
+                location.hash = '#' + href;
                 return false;
             });
             liveForms = $('form:not(' + activeOpts.excludeSelector + ')');
@@ -340,12 +340,12 @@ Requires
                 }
                 log("form submission:", data);
                 if (url === '.') {
-                    url = window.location.hash.substr(1);
+                    url = location.hash.substr(1);
                 }
                 if (type.toLowerCase() === 'get') {
                     url = url.substring(0, url.indexOf('?')) || url;
                     url += '?' + data;
-                    window.location.hash = '#' + url;
+                    location.hash = '#' + url;
                 } else {
                     // TODO: how does a post affect the hash fragment?
                     activeOpts.beforeUpdate();
@@ -362,6 +362,12 @@ Requires
         hashchange: function(callback) { // callback = function(e, hash) { ... }
             $(window).bind('hashsignal.hashchange', callback);
             return this;
+        },
+        hash: function(subhash) {
+            var parts = location.hash.substr(1).split(HASH_REPLACEMENT);
+            parts[1] = subhash;
+            location.hash = parts.join(HASH_REPLACEMENT);
+            return subhash;
         },
         registerTransition: function(name, blockNames, opts) {
             log('hashsignal.registerTransition', name, blockNames);
