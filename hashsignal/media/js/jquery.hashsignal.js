@@ -28,13 +28,18 @@ Requires
         beforeUpdate: function() { log('beforeUpdate'); },
         afterUpdate: function() { log('afterUpdate'); },
         errorUpdate: function() { log('errorUpdate'); },
+        onDocumentWrite: function(msg) {
+          if (window.console) {
+            window.console.error("jQuery.hashsignal received document.write: " + msg);
+          }
+        },
         debug: false,
         disabled: false
     };
 
     var methods, ALWAYS_RELOAD = '__all__', HASH_REPLACEMENT = ':',
         previousLocation = null, upcomingLocation = null,
-        transitions = {}, liveForms, document = window.document,
+        transitions = {}, liveFormsSel, document = window.document,
         location = window.location, history = window.history;
 
     function blockAction(actionName, blockName) { 
@@ -314,6 +319,8 @@ Requires
                 return this;
             }
 
+            document.write = activeOpts.onDocumentWrite;
+
             $(window).bind('hashchange', function(h){
                 log('hashchange');
                 updatePage(location.hash.substr(1), 'GET', '', activeOpts);
@@ -332,8 +339,8 @@ Requires
                 location.hash = '#' + href;
                 return false;
             });
-            liveForms = $('form:not(' + activeOpts.excludeSelector + ')');
-            liveForms.live('submit', function(event){
+            liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
+            $(liveFormsSel).live('submit', function(event){
                 var url = $(this).attr('action');
                 var type = $(this).attr('method');
                 var data = $(this).serialize();
@@ -360,8 +367,11 @@ Requires
                 return false;
             });
             //make sure the submitting button is included in the form data.
-            liveForms.find('input[type=submit],button[type=submit]').live('click', function(event) {
-              $(this).closest("form").get(0).submitter = this;
+            $(liveFormsSel + " input[type=submit],button[type=submit]").live('click', function(event) {
+              var form = $(this).closest("form").get(0);
+              if (form) {
+                form.submitter = this;
+              }
             });
             return this;
         },
