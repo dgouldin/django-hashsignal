@@ -28,7 +28,8 @@ Requires
         beforeUpdate: function() { log('beforeUpdate'); },
         afterUpdate: function() { log('afterUpdate'); },
         errorUpdate: function() { log('errorUpdate'); },
-        debug: false
+        debug: false,
+        disabled: false
     };
 
     var methods, ALWAYS_RELOAD = '__all__', HASH_REPLACEMENT = ':',
@@ -307,6 +308,11 @@ Requires
     methods = {
         init: function(explicitOpts) {
             activeOpts = $.extend(defaultOpts, explicitOpts);
+
+            if (activeOpts.disabled) {
+                // shortcut event binding
+                return this;
+            }
 
             $(window).bind('hashchange', function(h){
                 log('hashchange');
