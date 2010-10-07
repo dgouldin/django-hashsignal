@@ -11,7 +11,7 @@
       window.location = '/a/#' + href;
   }
   </script>
-  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.js"></script>
   <script type="text/javascript" src="{{ MEDIA_URL }}js/jquery.ba-hashchange.min.js"></script>
   <script type="text/javascript" src="{{ MEDIA_URL }}js/jquery.hashsignal.js"></script>
   <style>
@@ -38,7 +38,7 @@
   $(document).ready(function(){
     // Hook up normal hash "scrollTo" behavior.
     $.hashsignal.hashchange(function(e, hash) {
-      if ($('#' + hash).length >= 0) {
+      if (hash && $('#' + hash).length >= 0) {
           $(window).scrollTop($('#' + hash).offset().top);
       }
     });

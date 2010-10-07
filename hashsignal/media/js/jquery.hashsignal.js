@@ -39,6 +39,7 @@ Requires
 
     var methods, ALWAYS_RELOAD = '__all__', HASH_REPLACEMENT = ':',
         previousLocation = null, upcomingLocation = null,
+        previousSubhash = null,
         transitions = {}, liveFormsSel, document = window.document,
         location = window.location, history = window.history;
 
@@ -196,23 +197,30 @@ Requires
             errorUpdate: function() { return; }
         }, opts);
 
-        var urlParts = url.split(HASH_REPLACEMENT);
-        url = urlParts[0];
+        var urlParts = url.split(HASH_REPLACEMENT), location, subhash;
 
-        var subhash = urlParts[1] || '';
-        if (url == previousLocation && subhash && type.toLowerCase() === 'get' && !data) {
-            // Only hash, not page, needs to be updated
+        location = urlParts[0];
+        subhash = urlParts[1] || '';
+
+        if (location == previousLocation &&
+            subhash != previousSubhash) {
             $(window).trigger('hashsignal.hashchange', [subhash]);
+            previousSubhash = subhash;
+            return;
+        }
+
+        if (location == previousLocation &&
+            type.toLowerCase() === 'get' && !data) {
             return;
         }
 
         //deal with multiple pending requests by always having the 
         // last-requested win, rather than last-responded.
-        upcomingLocation = url;
-        function makeSuccessor(url) {
+        upcomingLocation = location;
+        function makeSuccessor(location) {
           return function(data, status, xhr) {
-              if (url != upcomingLocation) {
-                log("Success for ", url, " fired but last-requested was ", upcomingLocation, " - aborting");
+              if (location != upcomingLocation) {
+                log("Success for ", location, " fired but last-requested was ", upcomingLocation, " - aborting");
                 return;
               }
 
@@ -222,7 +230,8 @@ Requires
               if (subhash) {
                   $(window).trigger('hashsignal.hashchange', [subhash]);
               }
-              previousLocation = url;
+              previousLocation = location;
+              previousSubhash = subhash;
               callbacks.afterUpdate();
           };
         }
@@ -235,9 +244,9 @@ Requires
                 callbacks.errorUpdate(xhr, status, error);
                 history.back();
             },
-            success: makeSuccessor(url),
+            success: makeSuccessor(location),
             type: type,
-            url: url
+            url: location
         });
     }
 
@@ -322,7 +331,7 @@ Requires
             document.write = activeOpts.onDocumentWrite;
 
             $(window).bind('hashchange', function(h){
-                log('hashchange');
+                log('hashchange', h);
                 updatePage(location.hash.substr(1), 'GET', '', activeOpts);
             });
 
