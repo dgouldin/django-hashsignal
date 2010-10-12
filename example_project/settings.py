@@ -16,6 +16,7 @@ TEMPLATE_LOADERS = (
 )
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
+    'hashsignal.middleware.AjaxRedirectMiddleware'
 )
 ROOT_URLCONF = 'example_project.urls'
 TEMPLATE_DIRS = (
