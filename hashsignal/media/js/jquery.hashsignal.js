@@ -188,50 +188,64 @@ Requires
         }
     }
 
-    function updatePage(url, type, data, opts) {
+    function updatePage(url, type, data, replaceLocation) {
         type = type || 'GET';
         data = data || '';
         var callbacks = $.extend({
             beforeUpdate: function() { return; },
             afterUpdate: function() { return; },
             errorUpdate: function() { return; }
-        }, opts);
+        }, activeOpts);
 
-        var urlParts = url.split(HASH_REPLACEMENT), location, subhash;
+        var urlParts = url.split(HASH_REPLACEMENT), expectedLocation, subhash;
 
-        location = urlParts[0];
+        expectedLocation = urlParts[0];
         subhash = urlParts[1] || '';
 
-        if (location == previousLocation &&
+        if (expectedLocation == previousLocation &&
             subhash != previousSubhash) {
             $(window).trigger('hashsignal.hashchange', [subhash]);
             previousSubhash = subhash;
             return;
         }
 
-        if (location == previousLocation &&
+        if (expectedLocation == previousLocation &&
             type.toLowerCase() === 'get' && !data) {
             return;
         }
 
         //deal with multiple pending requests by always having the 
         // last-requested win, rather than last-responded.
-        upcomingLocation = location;
-        function makeSuccessor(location) {
+        upcomingLocation = expectedLocation;
+        function makeSuccessor(expectedLocation) {
           return function(data, status, xhr) {
-              if (location != upcomingLocation) {
-                log("Success for ", location, " fired but last-requested was ", upcomingLocation, " - aborting");
-                return;
+              if (expectedLocation != upcomingLocation) {
+                  log("Success for ", expectedLocation, " fired but last-requested was ", upcomingLocation, " - aborting");
+                  return;
               }
 
               log('updatePage onSuccess');
+
+              // If response body contains a redirect location, perform the redirect.
+              // This is an xhr-compatible proxy for 301/302 responses.
+              if (typeof data === 'object' && data.redirectLocation) {
+                
+                  updatePage(data.redirectLocation.replace('#', HASH_REPLACEMENT), 'GET', '', true);
+                  return;
+              }
+
               replaceBlocks(data);
 
               if (subhash) {
                   $(window).trigger('hashsignal.hashchange', [subhash]);
               }
-              previousLocation = location;
+              previousLocation = expectedLocation;
               previousSubhash = subhash;
+
+              if (replaceLocation) {
+                  location.replace('#' + url);
+              }
+
               callbacks.afterUpdate();
           };
         }
@@ -244,9 +258,12 @@ Requires
                 callbacks.errorUpdate(xhr, status, error);
                 history.back();
             },
-            success: makeSuccessor(location),
+            success: makeSuccessor(expectedLocation),
+            beforeSend: function(xhr) {
+              xhr.setRequestHeader('X-Hashsignal', 'Hashsignal');
+            },
             type: type,
-            url: location
+            url: expectedLocation
         });
     }
 
@@ -332,12 +349,12 @@ Requires
 
             $(window).bind('hashchange', function(h){
                 log('hashchange', h);
-                updatePage(location.hash.substr(1), 'GET', '', activeOpts);
+                updatePage(location.hash.substr(1), 'GET', '');
             });
 
             if (location.hash && location.hash !== '#') {
                 log('existing hash', location.hash);
-                updatePage(location.hash.substr(1), 'GET', '', activeOpts);
+                updatePage(location.hash.substr(1), 'GET', '');
             }
             $('a:not(' + activeOpts.excludeSelector + ')').live('click', function(){
                 var href = $(this).attr('href').replace('#', HASH_REPLACEMENT);
@@ -371,7 +388,7 @@ Requires
                 } else {
                     // TODO: how does a post affect the hash fragment?
                     activeOpts.beforeUpdate();
-                    updatePage(url, type, data, activeOpts);
+                    updatePage(url, type, data);
                 }
                 return false;
             });
