@@ -367,6 +367,15 @@ Requires
             });
             liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
             $(liveFormsSel).live('submit', function(event){
+                if ($(this).has("input[type='file']").length) {
+                    // we can't serialize files, so we have to do it the old-fashioned way
+                    var action = $(this).attr('action') || '.';
+                    if (action === '.') { // TODO: resolve all relative links, not just '.'
+                        $(this).attr('action', location.hash.substr(1));
+                    }
+                    return true;
+                }
+
                 var url = $(this).attr('action');
                 var type = $(this).attr('method');
                 var data = $(this).serialize();

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load hashsignal %}
+
+{% block title %}File Upoad{% endblock %}
+
+{% block content %}
+<p>This is a page with a file upload form. Since files aren't accessible to javascript, this form submission will not be powered by hashsignal.</p>
+<form enctype="multipart/form-data" method="POST" action=".">
+  <input type="file" name="file" />
+  <input type="submit" value="upload" />
+</form>
+{% endblock %}
