@@ -9,7 +9,7 @@ Requires
 */
 
 (function(window, $, undefined){
-    var activeOpts, defaultOpts;
+    var activeOpts, defaultOpts, insertId = 0;
 
     function log() {
         if (!(activeOpts && activeOpts.debug)) {
@@ -170,7 +170,13 @@ Requires
                 $(oldBlock.nodes[0]).after(newBlock.html +
                 '<script type="text/javascript">' +
                 '  jQuery.hashsignal._loadBlock("' + blockName.replace('"', '\\"') + '");' +
-                '</scr' + 'ipt>');
+                '</scr' + 'ipt><div id="hashsignal-' + insertId + '">&nbsp;</div>');
+                if (0 == $("#hashsignal-" + insertId).length) {
+                  if (window.console && window.console.error) {
+                    window.console.error("Unable to insert into " + blockName + " - is your HTML valid?");
+                  }
+                }
+                insertId += 1;
 
                 // update block signature
                 $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + newBlock.signature + "-->");
