@@ -25,11 +25,15 @@
     <li><a href="/">Homepage</a></li>
     <li><a href="/page/1/">Page 1</a></li>
     <li><a href="/page/2/">Page 2</a></li>
+    <li><a href="/page:3/">Page 3</a></li>
     <li><a href="/error/">Server Exception</a></li>
-    <li><a href="/redirect/ajax/?to=/page/1/%2523bottom">AjaxResponseRedirect redirect to bottom of Page 1</a></li>
-    <li><a href="/redirect/middleware/?to=/page/1/%2523bottom">AjaxRedirectMiddlware redirect to bottom of Page 1</a></li>
+    <li><a href="/redirect/ajax/?to=/page/1/%2523bottom">*Firefox: AjaxResponseRedirect redirect to bottom of Page 1</a></li>
+    <li><a href="/redirect/middleware/?to=/page/1/%2523bottom">*Firefox: AjaxRedirectMiddlware redirect to bottom of Page 1</a></li>
+    <li><a href="/redirect/ajax/?to=/page/1/%23bottom">*Webkit: AjaxResponseRedirect redirect to bottom of Page 1</a></li>
+    <li><a href="/redirect/middleware/?to=/page/1/%23bottom">*Webkit: AjaxRedirectMiddlware redirect to bottom of Page 1</a></li>    
     <li><a href="/upload/">Upload a file</a></li>
   </ul>
+  <p>*: Encoding a hash into a link is treated differently in different browsers: Firefox has a <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=483304">bug (483304)</a> that requires double-escaping hash.  (If we're wrong here, would love to hear otherwise.)
   <div id="content">
     <p><span id="dont">don't</span> <span id="clickme">click me</span></p>
   {% ajaxblock content %}
@@ -43,6 +47,8 @@
     $.hashsignal.hashchange(function(e, hash) {
       if (hash && $('#' + hash).length >= 0) {
           $(window).scrollTop($('#' + hash).offset().top);
+      } else {
+          $(window).scrollTop(0);
       }
     });
     $.hashsignal.init({

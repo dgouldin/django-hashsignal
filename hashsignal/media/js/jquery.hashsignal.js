@@ -203,7 +203,7 @@ Requires
             errorUpdate: function() { return; }
         }, activeOpts);
 
-        var urlParts = url.split(HASH_REPLACEMENT), expectedLocation, subhash;
+        var urlParts = url.split("#"), expectedLocation, subhash;
 
         expectedLocation = urlParts[0];
         subhash = urlParts[1] || '';
@@ -235,8 +235,7 @@ Requires
               // If response body contains a redirect location, perform the redirect.
               // This is an xhr-compatible proxy for 301/302 responses.
               if (typeof data === 'object' && data.redirectLocation) {
-                
-                  updatePage(data.redirectLocation.replace('#', HASH_REPLACEMENT), 'GET', '', true);
+                  updatePage(data.redirectLocation, 'GET', '', true);
                   return;
               }
 
@@ -249,7 +248,7 @@ Requires
               previousSubhash = subhash;
 
               if (replaceLocation) {
-                  location.replace('#' + url);
+                  location.replace('#' + hrefToHash(url));
               }
 
               callbacks.afterUpdate();
@@ -342,6 +341,81 @@ Requires
         };
     }
 
+    /*
+    http://tools.ietf.org/html/rfc3986#section-5.4
+        based on http://a/b/c/d;p?q
+        
+        "g:h"           =  "g:h"
+        "g"             =  "http://a/b/c/g"
+        "./g"           =  "http://a/b/c/g"
+        "g/"            =  "http://a/b/c/g/"
+        "/g"            =  "http://a/g"
+        "//g"           =  "http://g"
+        "?y"            =  "http://a/b/c/d;p?y"
+        "g?y"           =  "http://a/b/c/g?y"
+        "#s"            =  "http://a/b/c/d;p?q#s"
+        "g#s"           =  "http://a/b/c/g#s"
+        "g?y#s"         =  "http://a/b/c/g?y#s"
+        ";x"            =  "http://a/b/c/;x"
+        "g;x"           =  "http://a/b/c/g;x"
+        "g;x?y#s"       =  "http://a/b/c/g;x?y#s"
+        ""              =  "http://a/b/c/d;p?q"
+        "."             =  "http://a/b/c/"
+        "./"            =  "http://a/b/c/"
+        ".."            =  "http://a/b/"
+        "../"           =  "http://a/b/"
+        "../g"          =  "http://a/b/g"
+        "../.."         =  "http://a/"
+        "../../"        =  "http://a/"
+        "../../g"       =  "http://a/g"
+    abnormal
+        traverse past 
+         "../../../g"    =  "http://a/g"
+         "../../../../g" =  "http://a/g"
+        nonsense traversal
+         "/./g"          =  "http://a/g"
+          "/../g"         =  "http://a/g"
+          "g."            =  "http://a/b/c/g."
+          ".g"            =  "http://a/b/c/.g"
+          "g.."           =  "http://a/b/c/g.."
+          "..g"           =  "http://a/b/c/..g"         
+        nonsense abs
+            "./../g"        =  "http://a/b/g"
+            "./g/."         =  "http://a/b/c/g/"
+            "g/./h"         =  "http://a/b/c/g/h"
+            "g/../h"        =  "http://a/b/c/h"
+            "g;x=1/./y"     =  "http://a/b/c/g;x=1/y"
+            "g;x=1/../y"    =  "http://a/b/c/y"
+        no traverse from query
+          "g?y/./x"       =  "http://a/b/c/g?y/./x"
+          "g?y/../x"      =  "http://a/b/c/g?y/../x"
+          "g#s/./x"       =  "http://a/b/c/g#s/./x"
+          "g#s/../x"      =  "http://a/b/c/g#s/../x"
+    */
+    function resolveRelative(href, base) {
+        console.warn("Fix relative resolution");
+        return href;
+    }
+    function hrefToHash(href) {
+        var abs = resolveRelative(href);
+        var parts = abs.split("#");
+        var subhash = parts[1] || "";
+        return parts[0] + HASH_REPLACEMENT + encodeURIComponent(subhash);
+    }
+    function hashToHref(hash) {
+        hash = (hash[0] === "#" ? hash.substr(1) : hash);
+        var subhashIndex = hash.lastIndexOf(HASH_REPLACEMENT);
+        var page, subhash;
+        
+        if (subhashIndex == -1) {
+            return hash;
+        } else {
+            page = hash.substr(0,subhashIndex);
+            subhash = decodeURIComponent(hash.substr(subhashIndex+1));
+            return page + (subhash ? "#" + subhash : "");
+        }
+    }
+
     methods = {
         init: function(explicitOpts) {
             activeOpts = $.extend(defaultOpts, explicitOpts);
@@ -355,20 +429,15 @@ Requires
 
             $(window).bind('hashchange', function(h){
                 log('hashchange', h);
-                updatePage(location.hash.substr(1), 'GET', '');
+                updatePage(hashToHref(location.hash), 'GET', '');
             });
 
             if (location.hash && location.hash !== '#') {
                 log('existing hash', location.hash);
-                updatePage(location.hash.substr(1), 'GET', '');
+                updatePage(hashToHref(location.hash), 'GET', '');
             }
-            $('a:not(' + activeOpts.excludeSelector + ')').live('click', function(){
-                var href = $(this).attr('href').replace('#', HASH_REPLACEMENT);
-                if (href.indexOf(HASH_REPLACEMENT) === 0) {
-                    // link is relative to the current page
-                    href = location.hash.substr(1).split(HASH_REPLACEMENT)[0] + href;
-                }
-                location.hash = '#' + href;
+            $('a:not(' + activeOpts.excludeSelector + ')').live('click', function() {
+                location.hash = hrefToHash($(this).attr('href'));
                 return false;
             });
             liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
@@ -377,7 +446,7 @@ Requires
                     // we can't serialize files, so we have to do it the old-fashioned way
                     var action = $(this).attr('action') || '.';
                     if (action === '.') { // TODO: resolve all relative links, not just '.'
-                        $(this).attr('action', location.hash.substr(1));
+                        $(this).attr('action', hashToHref(location.hash));
                     }
                     return true;
                 }
@@ -394,12 +463,12 @@ Requires
                 }
                 log("form submission:", data);
                 if (url === '.') {
-                    url = location.hash.substr(1);
+                    url = hashToHref(location.hash);
                 }
                 if (type.toLowerCase() === 'get') {
                     url = url.substring(0, url.indexOf('?')) || url;
                     url += '?' + data;
-                    location.hash = '#' + url;
+                    location.hash = hrefToHash(url);
                 } else {
                     // TODO: how does a post affect the hash fragment?
                     activeOpts.beforeUpdate();
@@ -421,6 +490,7 @@ Requires
             return this;
         },
         hash: function(subhash) {
+            var current = hashToHref(location.hash);
             var ret;
             if (undefined === subhash) {
                 /* window.location.hash is a bit fiddly - if hash is empty, it returns "",
@@ -428,18 +498,18 @@ Requires
                   
                   And when assigning, "foo" and "#foo" are treated as equivalent.
                 */
-                ret = location.hash.split(HASH_REPLACEMENT)[1];
+                ret = current.split("#")[1];
                 return ret ? ("#" + ret) : "";
             }
             if (0 === subhash.indexOf("#")) {
                 subhash = subhash.substr(1);
             }
-            var parts = location.hash.substr(1).split(HASH_REPLACEMENT);
+            var parts = current.split("#");
             if (0 === subhash.length) {
-                location.hash = parts[0];
+                location.hash = hrefToHash(parts[0]);
             } else {
                 parts[1] = subhash;
-                location.hash = parts.join(HASH_REPLACEMENT);
+                location.hash = hrefToHash(parts.join("#"));
             }
             return subhash;
         },
