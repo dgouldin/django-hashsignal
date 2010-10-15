@@ -381,7 +381,7 @@ Requires
           "g."            =  "http://a/b/c/g."
           ".g"            =  "http://a/b/c/.g"
           "g.."           =  "http://a/b/c/g.."
-          "..g"           =  "http://a/b/c/..g"         
+          "..g"           =  "http://a/b/c/..g"
         nonsense abs
             "./../g"        =  "http://a/b/g"
             "./g/."         =  "http://a/b/c/g/"
@@ -396,6 +396,89 @@ Requires
           "g#s/../x"      =  "http://a/b/c/g#s/../x"
     */
     function resolveRelative(href, base) {
+        var baseLocation = new Location(hashToHref(location.hash));
+        var basePath = baseLocation.pathname + baseLocation.search + baseLocation.hash;
+        var pathParts;
+        //based on http://a/b/c/d;p?q
+
+        //g:h -> g:h
+        if (-1 != href.indexOf(':')) { //new scheme is always absolute.
+            return href;
+        }
+        if (undefined === base) {
+            if (location.protocol != "http:" && location.protocol != "https:") {
+                log("resolving relative with unknown protocol" + location.protocol + " aborting.");
+                return href;
+            }
+            base = (location.protocol + "//" +
+                    location.hostname + (location.port ? ":" + location.port : "") +
+                    basePath);
+            //reconstruct with full information.
+            baseLocation = new Location(base);
+        }
+        // starting with scheme, keep same protocol.
+        if (href.substr(0,2) == "//") { // //foo.com -> http://foo.com
+            return location.protocol + href;
+        }
+
+        //FIXME: loads not covered here yet.
+        return href;
+
+// Location shim 1.0
+// (c) Jeremy Dunck
+// MIT License
+
+function Location(url) {
+  obj = parseUri(url);
+  this.hash = obj.anchor ? "#" + obj.anchor : "";
+  this.host = obj.authority;
+  this.hostname = obj.host;
+  this.href = url;
+  this.pathname = obj.path;
+  this.port = obj.port;
+  this.protocol = obj.protocol;
+  this.search = obj.query ? "?" + obj.query : "";
+  this.queryKey = obj.queryKey;
+  this.toString = function() {
+    return this.href;
+  }
+}
+
+// parseUri 1.2.2
+// (c) Steven Levithan <stevenlevithan.com>
+// MIT License
+
+function parseUri (str) {
+  var o = parseUri.options,
+    m   = o.parser[o.strictMode ? "strict" : "loose"].exec(str),
+    uri = {},
+    i   = 14;
+
+  while (i--) uri[o.key[i]] = m[i] || "";
+
+  uri[o.q.name] = {};
+  uri[o.key[12]].replace(o.q.parser, function ($0, $1, $2) {
+    if ($1) uri[o.q.name][$1] = $2;
+  });
+
+  return uri;
+};
+
+parseUri.options = {
+  strictMode: false,
+  key: ["source","protocol","authority","userInfo","user","password","host","port","relative","path","directory","file","query","anchor"],
+  q:   {
+    name:   "queryKey",
+    parser: /(?:^|&)([^&=]*)=?([^&]*)/g
+  },
+  parser: {
+    strict: /^(?:([^:\/?#]+):)?(?:\/\/((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?))?((((?:[^?#\/]*\/)*)([^?#]*))(?:\?([^#]*))?(?:#(.*))?)/,
+    loose:  /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/
+  }
+};
+        if (undefined === base) {
+            base = hashToHref(location.hash);
+        }
         console.warn("Fix relative resolution");
         return href;
     }
