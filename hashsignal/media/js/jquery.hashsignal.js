@@ -132,7 +132,7 @@ Requires
         return blocks;
     }
     
-    function replaceBlocks(html) {
+    function replaceBlocks(html, forceReload) {
         log('replaceBlocks');
 
         function siblingsBetween(start, end) {
@@ -156,7 +156,7 @@ Requires
             if (blockName in oldBlocks) {
                 var oldBlock = oldBlocks[blockName];
                 var newBlock = newBlocks[blockName];
-                if (oldBlock.signature === newBlock.signature) {
+                if (oldBlock.signature === newBlock.signature && !forceReload) {
                     log('Not replacing block, signatures match.', blockName, oldBlock.signature);
                     continue; // The block is the same, no need to swap out the content.
                 }
@@ -194,18 +194,22 @@ Requires
         }
     }
 
-    function updatePage(url, type, data, replaceLocation) {
-        type = type || 'GET';
-        data = data || '';
+    function updatePage(opts) {
+        var o = $.extend({
+            url: (previousLocation || '') + '#' + (previousSubhash || ''),
+            type: 'GET',
+            data: '',
+            forceReload: false
+        }, opts);
         var callbacks = $.extend({
             beforeUpdate: function() { return; },
             afterUpdate: function() { return; },
             errorUpdate: function() { return; }
         }, activeOpts);
 
-        var urlParts = url.split("#"), expectedLocation, subhash;
+        var urlParts = o.url.split("#"), expectedLocation, subhash;
 
-        expectedLocation = urlParts[0];
+        expectedLocation = urlParts[0] || previousLocation;
         subhash = urlParts[1] || '';
 
         if (expectedLocation == previousLocation &&
@@ -215,8 +219,8 @@ Requires
             return;
         }
 
-        if (expectedLocation == previousLocation &&
-            type.toLowerCase() === 'get' && !data) {
+        if (!o.forceReload && expectedLocation == previousLocation &&
+            o.type.toLowerCase() === 'get' && !o.data) {
             return;
         }
 
@@ -235,11 +239,14 @@ Requires
               // If response body contains a redirect location, perform the redirect.
               // This is an xhr-compatible proxy for 301/302 responses.
               if (typeof data === 'object' && data.redirectLocation) {
-                  updatePage(data.redirectLocation, 'GET', '', true);
+                  log('redirecting page', data.redirectLocation);
+                  previousLocation = expectedLocation;
+                  previousSubhash = subhash;
+                  location.replace('#' + hrefToHash(data.redirectLocation));
                   return;
               }
 
-              replaceBlocks(data);
+              replaceBlocks(data, o.forceReload);
 
               if (subhash) {
                   $(window).trigger('hashsignal.hashchange', [subhash]);
@@ -247,17 +254,13 @@ Requires
               previousLocation = expectedLocation;
               previousSubhash = subhash;
 
-              if (replaceLocation) {
-                  location.replace('#' + hrefToHash(url));
-              }
-
               callbacks.afterUpdate();
           };
         }
 
         callbacks.beforeUpdate();
         $.ajax({
-            data: data,
+            data: o.data,
             error: function(xhr, status, error) {
                 log('updatePage error');
                 callbacks.errorUpdate(xhr, status, error);
@@ -267,7 +270,7 @@ Requires
             beforeSend: function(xhr) {
               xhr.setRequestHeader('X-Hashsignal', 'Hashsignal');
             },
-            type: type,
+            type: o.type,
             url: expectedLocation
         });
     }
@@ -416,6 +419,97 @@ Requires
         }
     }
 
+    function Location(url) {
+
+        // parseUri 1.2.2
+        // (c) Steven Levithan <stevenlevithan.com>
+        // MIT License
+
+        function parseUri (str) {
+            var o   = parseUri.options,
+                m   = o.parser[o.strictMode ? "strict" : "loose"].exec(str),
+                uri = {},
+                i   = 14;
+
+            while (i--) uri[o.key[i]] = m[i] || "";
+
+            uri[o.q.name] = {};
+            uri[o.key[12]].replace(o.q.parser, function ($0, $1, $2) {
+                if ($1) uri[o.q.name][$1] = $2;
+            });
+
+            return uri;
+        }
+
+        parseUri.options = {
+            strictMode: false,
+            key: ["source","protocol","authority","userInfo","user","password","host","port","relative","path","directory","file","query","anchor"],
+            q:   {
+                name:   "queryKey",
+                parser: /(?:^|&)([^&=]*)=?([^&]*)/g
+            },
+            parser: {
+                strict: /^(?:([^:\/?#]+):)?(?:\/\/((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?))?((((?:[^?#\/]*\/)*)([^?#]*))(?:\?([^#]*))?(?:#(.*))?)/,
+                loose:  /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/
+            }
+        };
+
+        // end parseUri
+
+        var parts = {
+            port: '', // 80
+            protocol: '', // http:
+            hostname: '', // www.google.com
+            pathname: '', // /search
+            search: '',  // ?q=devmo
+            hash: ''  // #test
+        };
+        var that = this;
+        $.each(parts, function(k, v) {
+            that[k] = function(value) {
+                if (value === undefined) {
+                    return parts[k];
+                } else {
+                    parts[k] = value;
+                }
+            };
+        });
+
+        this.href = function(value) {  // http://www.google.com:80/search?q=devmo#test
+            if (value === undefined) {
+                return this.protocol() + '//' + this.host() + this.pathname() + this.search() + this.hash();
+            } else {
+                var obj = parseUri(value);
+                parts = {
+                    port: obj.port,
+                    protocol: obj.protocol + ':',
+                    hostname: obj.host,
+                    pathname: obj.path,
+                    search: obj.query ? "?" + obj.query : "",
+                    hash: obj.anchor ? "#" + obj.anchor : ""
+                };
+                return this.href();
+            }
+        };
+        this.host = function(value) { // www.google.com:80
+            if (value === undefined) {
+                var host = this.hostname() + (this.port() === '' ? '' : ':' + this.port());
+                return host;
+            } else {
+                var obj = parseUri(value + this.pathname() + this.search() + this.hash());
+                parts.port = obj.port;
+                parts.hostname = obj.host;
+                return this.host();
+            }
+        };
+
+        this.relativeHref = function() {
+            return this.pathname() + this.search() + this.hash();
+        }
+
+        this.href(url); // hook it up!
+    }
+
     methods = {
         init: function(explicitOpts) {
             activeOpts = $.extend(defaultOpts, explicitOpts);
@@ -427,14 +521,20 @@ Requires
 
             document.write = activeOpts.onDocumentWrite;
 
-            $(window).bind('hashchange', function(h){
-                log('hashchange', h);
-                updatePage(hashToHref(location.hash), 'GET', '');
+            $(window).bind('hashchange', function(e){
+                log('hashchange', e);
+                updatePage({
+                    url: hashToHref(location.hash),
+                    type: 'GET'
+                });
             });
 
             if (location.hash && location.hash !== '#') {
                 log('existing hash', location.hash);
-                updatePage(hashToHref(location.hash), 'GET', '');
+                updatePage({
+                    url: hashToHref(location.hash),
+                    type: 'GET'
+                });
             }
             $('a:not(' + activeOpts.excludeSelector + ')').live('click', function() {
                 location.hash = hrefToHash($(this).attr('href'));
@@ -472,7 +572,11 @@ Requires
                 } else {
                     // TODO: how does a post affect the hash fragment?
                     activeOpts.beforeUpdate();
-                    updatePage(url, type, data);
+                    updatePage({
+                        url: url,
+                        type: type,
+                        data: data
+                    });
                 }
                 return false;
             });
@@ -489,30 +593,36 @@ Requires
             $(window).bind('hashsignal.hashchange', callback);
             return this;
         },
-        hash: function(subhash) {
-            var current = hashToHref(location.hash);
-            var ret;
-            if (undefined === subhash) {
-                /* window.location.hash is a bit fiddly - if hash is empty, it returns "",
-                  but if it is non-empty, it returns "#hash".
-                  
-                  And when assigning, "foo" and "#foo" are treated as equivalent.
-                */
-                ret = current.split("#")[1];
-                return ret ? ("#" + ret) : "";
-            }
-            if (0 === subhash.indexOf("#")) {
-                subhash = subhash.substr(1);
-            }
-            var parts = current.split("#");
-            if (0 === subhash.length) {
-                location.hash = hrefToHash(parts[0]);
-            } else {
-                parts[1] = subhash;
-                location.hash = hrefToHash(parts.join("#"));
-            }
-            return subhash;
-        },
+        location: function(properties) {
+            var that = {};
+            $(properties).each(function(i, property) {
+                that[property] = function(value) {
+                    var l = new Location(hashToHref(location.hash));
+                    if (!l) {
+                        throw "Could not parse current location! " + hashToHref(location.hash);
+                    }
+                    if (value === undefined) {
+                        return l[property]();
+                    } else {
+                        l[property](value);
+                        location.hash = hrefToHash(l.relativeHref());
+                    }
+                }
+            });
+
+            that.assign = that.href; // alias to fully support window.location parity
+            that.reload = function() {
+                updatePage({
+                    forceReload: true
+                });
+            };
+            that.replace = function(url) {
+                var l = new Location(url);
+                location.replace('#' + hrefToHash(l.relativeHref()));
+            };
+
+            return that;
+        }(['hash', 'href', 'pathname', 'search']),
         registerTransition: function(name, blockNames, opts) {
             log('hashsignal.registerTransition', name, blockNames);
             var transition = new Transition(opts);
