@@ -344,147 +344,71 @@ Requires
         };
     }
 
-    /*
-    http://tools.ietf.org/html/rfc3986#section-5.4
-        based on http://a/b/c/d;p?q
-        
-        "g:h"           =  "g:h"
-        "g"             =  "http://a/b/c/g"
-        "./g"           =  "http://a/b/c/g"
-        "g/"            =  "http://a/b/c/g/"
-        "/g"            =  "http://a/g"
-        "//g"           =  "http://g"
-        "?y"            =  "http://a/b/c/d;p?y"
-        "g?y"           =  "http://a/b/c/g?y"
-        "#s"            =  "http://a/b/c/d;p?q#s"
-        "g#s"           =  "http://a/b/c/g#s"
-        "g?y#s"         =  "http://a/b/c/g?y#s"
-        ";x"            =  "http://a/b/c/;x"
-        "g;x"           =  "http://a/b/c/g;x"
-        "g;x?y#s"       =  "http://a/b/c/g;x?y#s"
-        ""              =  "http://a/b/c/d;p?q"
-        "."             =  "http://a/b/c/"
-        "./"            =  "http://a/b/c/"
-        ".."            =  "http://a/b/"
-        "../"           =  "http://a/b/"
-        "../g"          =  "http://a/b/g"
-        "../.."         =  "http://a/"
-        "../../"        =  "http://a/"
-        "../../g"       =  "http://a/g"
-    abnormal
-        traverse past 
-         "../../../g"    =  "http://a/g"
-         "../../../../g" =  "http://a/g"
-        nonsense traversal
-         "/./g"          =  "http://a/g"
-          "/../g"         =  "http://a/g"
-          "g."            =  "http://a/b/c/g."
-          ".g"            =  "http://a/b/c/.g"
-          "g.."           =  "http://a/b/c/g.."
-          "..g"           =  "http://a/b/c/..g"
-        nonsense abs
-            "./../g"        =  "http://a/b/g"
-            "./g/."         =  "http://a/b/c/g/"
-            "g/./h"         =  "http://a/b/c/g/h"
-            "g/../h"        =  "http://a/b/c/h"
-            "g;x=1/./y"     =  "http://a/b/c/g;x=1/y"
-            "g;x=1/../y"    =  "http://a/b/c/y"
-        no traverse from query
-          "g?y/./x"       =  "http://a/b/c/g?y/./x"
-          "g?y/../x"      =  "http://a/b/c/g?y/../x"
-          "g#s/./x"       =  "http://a/b/c/g#s/./x"
-          "g#s/../x"      =  "http://a/b/c/g#s/../x"
-    */
-    function resolveRelative(href, base) {
-        var baseLocation = new Location(hashToHref(location.hash));
-        var basePath = baseLocation.pathname + baseLocation.search + baseLocation.hash;
-        var pathParts;
-        //based on http://a/b/c/d;p?q
+    function resolveRelative(target) {
+        var base = hashToHref(location.hash);
+        return _resolveRelative(target, base);
+    }
 
-        //g:h -> g:h
-        if (-1 != href.indexOf(':')) { //new scheme is always absolute.
-            return href;
-        }
-        if (undefined === base) {
-            if (location.protocol != "http:" && location.protocol != "https:") {
-                log("resolving relative with unknown protocol" + location.protocol + " aborting.");
-                return href;
-            }
-            base = (location.protocol + "//" +
-                    location.hostname + (location.port ? ":" + location.port : "") +
-                    basePath);
-            //reconstruct with full information.
-            baseLocation = new Location(base);
+    function _resolveRelative(target, base) {
+        if (-1 != target.indexOf(':')) { //new scheme is always absolute.
+            return target;
         }
         // starting with scheme, keep same protocol.
-        if (href.substr(0,2) == "//") { // //foo.com -> http://foo.com
-            return location.protocol + href;
+        if (target.substr(0,2) == "//") { // //foo.com -> http://foo.com
+            return location.protocol + target;
+        }
+        if (target === "") {
+            return base;
+        }
+        if (target === ".") {
+            var temp = base.split("/");
+            temp[temp.length-1] = "";
+            return temp.join("/");
+        }
+        if (target[0] === "#") {
+            var parts = base.split("#");
+            parts[1] = target.substr(1);
+            return parts.join("#");
+        }
+
+        /*
+        var targetPath;
+
+        var baseL = new Location(base);
+
+        if (target[0] === "#") {
+            return baseL.protocol() + "//" + baseL.host() + baseL.pathname() + baseL.search() + target;
+        }
+
+        var basePathParts = baseL.pathname().split("/");
+
+        var pending = basePathParts.concat(targetPathParts);
+        var final = [];
+        var rootDir = false;
+
+        for (var i=0,l=pending.length; i<l; i++) {
+            if (pending[i] == ".") {
+                if (final.length > 0) {
+                    continue;
+                } else {
+                    rootDir = true;
+                }
+            } else if (pending[i] == "..") {
+                final.pop();
+            } else {
+
+                final.push(pending[i]);
+            }
         }
 
         //FIXME: loads not covered here yet.
-        return href;
+        */
 
-// Location shim 1.0
-// (c) Jeremy Dunck
-// MIT License
-
-function Location(url) {
-  obj = parseUri(url);
-  this.hash = obj.anchor ? "#" + obj.anchor : "";
-  this.host = obj.authority;
-  this.hostname = obj.host;
-  this.href = url;
-  this.pathname = obj.path;
-  this.port = obj.port;
-  this.protocol = obj.protocol;
-  this.search = obj.query ? "?" + obj.query : "";
-  this.queryKey = obj.queryKey;
-  this.toString = function() {
-    return this.href;
-  }
-}
-
-// parseUri 1.2.2
-// (c) Steven Levithan <stevenlevithan.com>
-// MIT License
-
-function parseUri (str) {
-  var o = parseUri.options,
-    m   = o.parser[o.strictMode ? "strict" : "loose"].exec(str),
-    uri = {},
-    i   = 14;
-
-  while (i--) uri[o.key[i]] = m[i] || "";
-
-  uri[o.q.name] = {};
-  uri[o.key[12]].replace(o.q.parser, function ($0, $1, $2) {
-    if ($1) uri[o.q.name][$1] = $2;
-  });
-
-  return uri;
-};
-
-parseUri.options = {
-  strictMode: false,
-  key: ["source","protocol","authority","userInfo","user","password","host","port","relative","path","directory","file","query","anchor"],
-  q:   {
-    name:   "queryKey",
-    parser: /(?:^|&)([^&=]*)=?([^&]*)/g
-  },
-  parser: {
-    strict: /^(?:([^:\/?#]+):)?(?:\/\/((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?))?((((?:[^?#\/]*\/)*)([^?#]*))(?:\?([^#]*))?(?:#(.*))?)/,
-    loose:  /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/
-  }
-};
-        if (undefined === base) {
-            base = hashToHref(location.hash);
-        }
-        console.warn("Fix relative resolution");
-        return href;
+        return target;
     }
+
     function hrefToHash(href) {
-        var abs = resolveRelative(href);
-        var parts = abs.split("#");
+        var parts = href.split("#");
         var subhash = parts[1] || "";
         return parts[0] + HASH_REPLACEMENT + encodeURIComponent(subhash);
     }
@@ -620,7 +544,13 @@ parseUri.options = {
                 });
             }
             $('a:not(' + activeOpts.excludeSelector + ')').live('click', function() {
-                location.hash = hrefToHash($(this).attr('href'));
+                var href = resolveRelative($(this).attr('href'));
+                //FIXME: make resolveRelative really return absolutes :-/
+
+                if (href.indexOf(":") != -1) {
+                    return true;
+                }
+                location.hash = hrefToHash(href);
                 return false;
             });
             liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
@@ -634,20 +564,17 @@ parseUri.options = {
                     return true;
                 }
 
-                var url = $(this).attr('action');
+                var url = resolveRelative($(this).attr('action'));
                 var type = $(this).attr('method');
                 var data = $(this).serialize();
                 var submitter = this.submitter;
                 if (submitter) {
-                    data += (data.length === 0 ? "?" : "&") + (
+                    data += (data.length === 0 ? "" : "&") + (
                         encodeURIComponent($(submitter).attr("name")) 
                         + "=" + encodeURIComponent($(submitter).attr("value"))
                     );
                 }
                 log("form submission:", data);
-                if (url === '.') {
-                    url = hashToHref(location.hash);
-                }
                 if (type.toLowerCase() === 'get') {
                     url = url.substring(0, url.indexOf('?')) || url;
                     url += '?' + data;

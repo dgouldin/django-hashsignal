@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Form GET{% endblock %}
+
+{% block content %}
+<p>This is a form page. </p>
+<form action="." method="{{ method }}">
+  <input type="submit" name="submitted" value="yep">
+</form>
+<p>Submitted? {{ submitted }}</p>
+{% endblock %}

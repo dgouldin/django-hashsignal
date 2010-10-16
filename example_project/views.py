@@ -18,3 +18,11 @@ def file_upload(request):
         else:
             return HttpResponseRedirect('/')
     return render_to_response('file_upload.html')
+
+def form_get(request):
+    return render_to_response('form.html', {'submitted': request.GET.get('submitted', "nope"),
+                                                "method": "GET"})
+
+def form_post(request):
+    return render_to_response('form.html', {'submitted': request.POST.get('submitted', "nope"),
+                                                "method": "POST"})
