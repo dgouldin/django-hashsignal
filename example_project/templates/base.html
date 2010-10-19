@@ -48,7 +48,7 @@
   $(document).ready(function(){
     // Hook up normal hash "scrollTo" behavior.
     $.hashsignal.hashchange(function(e, hash) {
-      if (hash && $('#' + hash).length >= 0) {
+      if (hash && 0 < $('#' + hash).length) {
           $(window).scrollTop($('#' + hash).offset().top);
       } else {
           $(window).scrollTop(0);
