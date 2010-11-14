@@ -365,7 +365,7 @@ Requires
             temp[temp.length-1] = "";
             return temp.join("/");
         }
-        if (target[0] === "#") {
+        if (target.charAt(0) === "#") {
             var parts = base.split("#");
             parts[1] = target.substr(1);
             return parts.join("#");
@@ -376,7 +376,7 @@ Requires
 
         var baseL = new Location(base);
 
-        if (target[0] === "#") {
+        if (target.charAt(0) === "#") {
             return baseL.protocol() + "//" + baseL.host() + baseL.pathname() + baseL.search() + target;
         }
 
@@ -413,7 +413,7 @@ Requires
         return parts[0] + HASH_REPLACEMENT + encodeURIComponent(subhash);
     }
     function hashToHref(hash) {
-        hash = (hash[0] === "#" ? hash.substr(1) : hash);
+        hash = (hash.charAt(0) === "#" ? hash.substr(1) : hash);
         var subhashIndex = hash.lastIndexOf(HASH_REPLACEMENT);
         var page, subhash;
         
