@@ -19,7 +19,7 @@ Requires
         if (window.console) {
             window.console.log(args);
         } else {
-         return; // TODO: replacement for console.log
+         alert(args.join(" "));
         }
     }
     
@@ -206,7 +206,6 @@ Requires
             afterUpdate: function() { return; },
             errorUpdate: function() { return; }
         }, activeOpts);
-
         var urlParts = o.url.split("#"), expectedLocation, subhash;
 
         expectedLocation = urlParts[0] || previousLocation;
@@ -234,8 +233,6 @@ Requires
                   return;
               }
 
-              log('updatePage onSuccess');
-
               // If response body contains a redirect location, perform the redirect.
               // This is an xhr-compatible proxy for 301/302 responses.
               if (typeof data === 'object' && data.redirectLocation) {
@@ -260,15 +257,16 @@ Requires
 
         callbacks.beforeUpdate();
         $.ajax({
+            dataType: "text",
             data: o.data,
             error: function(xhr, status, error) {
-                log('updatePage error');
+                log('updatePage error ' + status + " " + error);
                 callbacks.errorUpdate(xhr, status, error);
                 history.back();
             },
             success: makeSuccessor(expectedLocation),
             beforeSend: function(xhr) {
-              xhr.setRequestHeader('X-Hashsignal', 'Hashsignal');
+              xhr.setRequestHeader('X-Hashsignal', 'Hashsignal'); //Used to tell server to send Ajax-friendly redirects.
             },
             type: o.type,
             url: expectedLocation
@@ -346,7 +344,8 @@ Requires
 
     function resolveRelative(target) {
         var base = hashToHref(location.hash);
-        return _resolveRelative(target, base);
+        var abs = _resolveRelative(target, base);
+        return abs;
     }
 
     function _resolveRelative(target, base) {
@@ -535,9 +534,7 @@ Requires
                     type: 'GET'
                 });
             });
-
             if (location.hash && location.hash !== '#') {
-                log('existing hash', location.hash);
                 updatePage({
                     url: hashToHref(location.hash),
                     type: 'GET'
@@ -546,7 +543,6 @@ Requires
             $('a:not(' + activeOpts.excludeSelector + ')').live('click', function() {
                 var href = resolveRelative($(this).attr('href'));
                 //FIXME: make resolveRelative really return absolutes :-/
-
                 if (href.indexOf(":") != -1) {
                     return true;
                 }
