@@ -541,12 +541,14 @@ Requires
                 });
             }
             $('a:not(' + activeOpts.excludeSelector + ')').live('click', function() {
-                var href = resolveRelative($(this).attr('href'));
-                //FIXME: make resolveRelative really return absolutes :-/
-                if (href.indexOf(":") != -1) {
-                    return true;
+                var domain = location.protocol + "//" + location.host;
+                var href = this.href;
+                if (0 != href.indexOf(domain)) { //off-site, or different protocol.
+                  return true;
                 }
-                location.hash = hrefToHash(href);
+                var path = href.slice(domain.length);
+                var hash = hrefToHash(path);
+                location.hash = hash;
                 return false;
             });
             liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
