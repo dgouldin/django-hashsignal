@@ -348,70 +348,6 @@ Requires
         };
     }
 
-    function resolveRelative(target) {
-        var base = hashToHref(location.hash);
-        var abs = _resolveRelative(target, base);
-        return abs;
-    }
-
-    function _resolveRelative(target, base) {
-        if (-1 != target.indexOf(':')) { //new scheme is always absolute.
-            return target;
-        }
-        // starting with scheme, keep same protocol.
-        if (target.substr(0,2) == "//") { // //foo.com -> http://foo.com
-            return location.protocol + target;
-        }
-        if (target === "") {
-            return base;
-        }
-        if (target === ".") {
-            var temp = base.split("/");
-            temp[temp.length-1] = "";
-            return temp.join("/");
-        }
-        if (target.charAt(0) === "#") {
-            var parts = base.split("#");
-            parts[1] = target.substr(1);
-            return parts.join("#");
-        }
-
-        /*
-        var targetPath;
-
-        var baseL = new Location(base);
-
-        if (target.charAt(0) === "#") {
-            return baseL.protocol() + "//" + baseL.host() + baseL.pathname() + baseL.search() + target;
-        }
-
-        var basePathParts = baseL.pathname().split("/");
-
-        var pending = basePathParts.concat(targetPathParts);
-        var final = [];
-        var rootDir = false;
-
-        for (var i=0,l=pending.length; i<l; i++) {
-            if (pending[i] == ".") {
-                if (final.length > 0) {
-                    continue;
-                } else {
-                    rootDir = true;
-                }
-            } else if (pending[i] == "..") {
-                final.pop();
-            } else {
-
-                final.push(pending[i]);
-            }
-        }
-
-        //FIXME: loads not covered here yet.
-        */
-
-        return target;
-    }
-
     function hrefToHash(href) {
         var parts = href.split("#");
         var subhash = parts[1] || "";
@@ -534,25 +470,31 @@ Requires
         }
         return "/" + absolute.slice(domain.length);
     }
-    function setBase(baseURL) {
+    function setBase(baseURL, resolverId, callback) {
         var src;
-        $("#"+activeOpts.resolverId).remove();
+        resolverId = resolverId || activeOpts.resolverId;
+        callback = callback || $.noop;
+        $("#"+resolverId).remove();
         if ($.browser.mozilla) { //work around https://bugzilla.mozilla.org/show_bug.cgi?id=209275
             src = "src='data:text/html;base64," + window.btoa("<html><head><base href='" + baseURL + "'></head><body></body></html>") + "'";
         } else {
             src = ""
         }
-        iframe = $("<iframe style='height:100px;width:100px;overflow:hidden' id='hashsignal-abs'" + src + "></iframe>");
+        iframe = $("<iframe style='height:0px;width:0px;display:none' id='" + resolverId + "'" + src + "></iframe>");
         $("body").append(iframe);
         if (!$.browser.mozilla) { //work around content document not being immediately ready.
             setTimeout(function() { 
-                var childDoc = $("#"+activeOpts.resolverId).get(0).contentWindow.document;
+                var childDoc = $("#"+resolverId).get(0).contentWindow.document;
                 $("head", childDoc).append($("<base href='" + baseURL + "'>", childDoc));
+                callback();
             }, 0);
+        } else {
+            callback();
         }
     }
-    function resolve(url) {
-        var childDoc = $("#" + activeOpts.resolverId).get(0).contentWindow.document;
+    function resolve(url, resolverId) {
+        resolverId = resolverId || activeOpts.resolverId;
+        var childDoc = $("#" + resolverId).get(0).contentWindow.document;
         $("a", childDoc).remove();
         $("body", childDoc).append($("<p><a href='" + url + "'>&nbsp;</a></p>", childDoc));
         return $("a", childDoc).get(0).href;
@@ -594,11 +536,11 @@ Requires
                 location.hash = hash;
                 return false;
             });
+            
             liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
-            $(liveFormsSel).live('submit', function(event){
+            $(liveFormsSel).live('submit', function(event) {
                 var href = resolve(this.getAttribute('action') || "."),
                     path = pathOf(href);
-
                 if (!path) { //off-site forms act normally.
                     return true;
                 }
@@ -635,12 +577,14 @@ Requires
                 }
                 return false;
             });
+
             //make sure the submitting button is included in the form data.
             $(liveFormsSel + " input[type=submit],button[type=submit]").live('click', function(event) {
               var form = $(this).closest("form").get(0);
               if (form) {
                 form.submitter = this;
               }
+              return true;
             });
             return this;
         },
@@ -678,6 +622,12 @@ Requires
 
             return that;
         }(['hash', 'href', 'pathname', 'search']),
+        resolveURL: function(url, callback) {
+            var clientResolver = activeOpts.resolverId+"-client";
+            setBase(urlPrefix() + hashToHref(location.hash), clientResolver, function() {
+                callback(resolve(url));
+            })
+        },
         registerTransition: function(name, blockNames, opts) {
             log('hashsignal.registerTransition', name, blockNames);
             var transition = new Transition(opts);
