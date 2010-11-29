@@ -410,19 +410,38 @@ Requires
             hostname: '', // www.google.com
             pathname: '', // /search
             search: '',  // ?q=devmo
-            hash: ''  // #test
         };
         var that = this;
-        $.each(parts, function(k, v) {
-            that[k] = function(value) {
+        var partFunc = function(k) {
+            return function(value) {
                 if (value === undefined) {
                     return parts[k];
                 } else {
                     parts[k] = value;
                 }
             };
-        });
+        }
 
+        for (var k in parts) {
+            if (parts.hasOwnProperty(k)) {
+                that[k] = partFunc(k);
+            }
+        }
+
+        parts.hash = '';
+        this.hash = function(value) { // #test
+            if (value === undefined) {
+                return parts.hash;
+            } else {
+                if (value.length === 0) {
+                    parts.hash = '';
+                } else {
+                    parts.hash = value[0] === '#' ? value : '#' + value;
+                }
+                return parts.hash;
+            }
+        };
+        
         this.href = function(value) {  // http://www.google.com:80/search?q=devmo#test
             if (value === undefined) {
                 return this.protocol() + '//' + this.host() + this.pathname() + this.search() + this.hash();
