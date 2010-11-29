@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %}Relative links{% endblock %}
+
+{% block content %}
+<p><a href="?x=1">Links can add querystrings.</a></p>
+<p><a href=".">Or point to the current page.</a></p>
+<p><a href="..">Or point to the parent page.</a></p>
+{% endblock %}

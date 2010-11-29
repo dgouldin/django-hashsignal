@@ -34,7 +34,8 @@ Requires
           }
         },
         debug: false,
-        disabled: false
+        disabled: false,
+        resolverId: "hashsignal-abs"
     };
 
     var methods, ALWAYS_RELOAD = '__all__', HASH_REPLACEMENT = ':',
@@ -210,7 +211,6 @@ Requires
 
         expectedLocation = urlParts[0] || previousLocation;
         subhash = urlParts[1] || '';
-
         if (expectedLocation == previousLocation &&
             subhash != previousSubhash) {
             $(window).trigger('hashsignal.hashchange', [subhash]);
@@ -232,17 +232,23 @@ Requires
                   log("Success for ", expectedLocation, " fired but last-requested was ", upcomingLocation, " - aborting");
                   return;
               }
-
+              var jsonData;
+              try {
+                  jsonData = $.parseJSON(data);
+              }
+              catch (ex) {};
+              
               // If response body contains a redirect location, perform the redirect.
               // This is an xhr-compatible proxy for 301/302 responses.
-              if (typeof data === 'object' && data.redirectLocation) {
-                  log('redirecting page', data.redirectLocation);
+              if (jsonData && jsonData.redirectLocation) {
+                  log('redirecting page', jsonData.redirectLocation);
                   previousLocation = expectedLocation;
                   previousSubhash = subhash;
-                  location.replace('#' + hrefToHash(data.redirectLocation));
+                  location.replace('#' + hrefToHash(jsonData.redirectLocation));
                   return;
               }
 
+              setBase(urlPrefix() + expectedLocation);
               replaceBlocks(data, o.forceReload);
 
               if (subhash) {
@@ -516,6 +522,43 @@ Requires
         this.href(url); // hook it up!
     }
 
+
+    function urlPrefix() {
+        return location.protocol + "//" + location.host;
+    }
+    function pathOf(absolute) {
+        var domain = urlPrefix() + "/";
+
+        if (0 != absolute.indexOf(domain)) { //off-site, or different protocol.
+          return false;
+        }
+        return "/" + absolute.slice(domain.length);
+    }
+    function setBase(baseURL) {
+        var src;
+        $("#"+activeOpts.resolverId).remove();
+        if ($.browser.mozilla) { //work around https://bugzilla.mozilla.org/show_bug.cgi?id=209275
+            src = "src='data:text/html;base64," + window.btoa("<html><head><base href='" + baseURL + "'></head><body></body></html>") + "'";
+        } else {
+            src = ""
+        }
+        iframe = $("<iframe style='height:100px;width:100px;overflow:hidden' id='hashsignal-abs'" + src + "></iframe>");
+        $("body").append(iframe);
+        if (!$.browser.mozilla) { //work around content document not being immediately ready.
+            setTimeout(function() { 
+                var childDoc = $("#"+activeOpts.resolverId).get(0).contentWindow.document;
+                $("head", childDoc).append($("<base href='" + baseURL + "'>", childDoc));
+            }, 0);
+        }
+    }
+    function resolve(url) {
+        var childDoc = $("#" + activeOpts.resolverId).get(0).contentWindow.document;
+        $("a", childDoc).remove();
+        $("body", childDoc).append($("<p><a href='" + url + "'>&nbsp;</a></p>", childDoc));
+        return $("a", childDoc).get(0).href;
+    }
+    
+
     methods = {
         init: function(explicitOpts) {
             activeOpts = $.extend(defaultOpts, explicitOpts);
@@ -541,28 +584,31 @@ Requires
                 });
             }
             $('a:not(' + activeOpts.excludeSelector + ')').live('click', function() {
-                var domain = location.protocol + "//" + location.host;
-                var href = this.href;
-                if (0 != href.indexOf(domain)) { //off-site, or different protocol.
+                var href = resolve(this.getAttribute('href') || ".");
+                var path = pathOf(href);
+
+                if (!path) { //off-site links act normally.
                   return true;
                 }
-                var path = href.slice(domain.length);
                 var hash = hrefToHash(path);
                 location.hash = hash;
                 return false;
             });
             liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
             $(liveFormsSel).live('submit', function(event){
-                if ($(this).has("input[type='file']").length) {
-                    // we can't serialize files, so we have to do it the old-fashioned way
-                    var action = $(this).attr('action') || '.';
-                    if (action === '.') { // TODO: resolve all relative links, not just '.'
-                        $(this).attr('action', hashToHref(location.hash));
-                    }
+                var href = resolve(this.getAttribute('action') || "."),
+                    path = pathOf(href);
+
+                if (!path) { //off-site forms act normally.
                     return true;
                 }
 
-                var url = resolveRelative($(this).attr('action'));
+                if ($(this).has("input[type='file']").length) {
+                    // we can't serialize files, so we have to do it the old-fashioned way
+                    $(this).attr('action', path);
+                    return true;
+                }
+
                 var type = $(this).attr('method');
                 var data = $(this).serialize();
                 var submitter = this.submitter;
@@ -574,14 +620,15 @@ Requires
                 }
                 log("form submission:", data);
                 if (type.toLowerCase() === 'get') {
-                    url = url.substring(0, url.indexOf('?')) || url;
-                    url += '?' + data;
-                    location.hash = hrefToHash(url);
+                    //fix up the querystring.
+                    path = path.substring(0, path.indexOf('?')) || path;
+                    path += '?' + data;
+                    location.hash = hrefToHash(path);
                 } else {
                     // TODO: how does a post affect the hash fragment?
                     activeOpts.beforeUpdate();
                     updatePage({
-                        url: url,
+                        url: path,
                         type: type,
                         data: data
                     });
