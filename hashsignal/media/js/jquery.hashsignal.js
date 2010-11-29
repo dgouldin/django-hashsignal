@@ -579,7 +579,7 @@ Requires
             });
 
             //make sure the submitting button is included in the form data.
-            $(liveFormsSel + " input[type=submit],button[type=submit]").live('click', function(event) {
+            $(liveFormsSel + " input[type=submit], " + liveFormsSel + " button[type=submit]").live('click', function(event) {
               var form = $(this).closest("form").get(0);
               if (form) {
                 form.submitter = this;
