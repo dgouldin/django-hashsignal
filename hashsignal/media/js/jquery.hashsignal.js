@@ -22,7 +22,7 @@ Requires
          alert(args.join(" "));
         }
     }
-    
+
     defaultOpts = {
         excludeSelector: '.no-ajax',
         beforeUpdate: function() { log('beforeUpdate'); },
@@ -44,7 +44,7 @@ Requires
         transitions = {}, liveFormsSel, document = window.document,
         location = window.location, history = window.history;
 
-    function blockAction(actionName, blockName) { 
+    function blockAction(actionName, blockName) {
         /* DRYs up _unloadBlock and _loadBlock below */
         var transition = transitions[blockName];
         if (!transition) {
@@ -93,7 +93,7 @@ Requires
         });
         return blocks;
     }
-    
+
     function getNewBlocks(html) {
         var blocker = /<!-- (end)?block ([^ ]*) ([0123456789abcdef]{32} )?-->/gi;
         var starts = []; //stack of {name:a, signature:x, start:y};
@@ -109,7 +109,7 @@ Requires
             throw "Unexpected block nesting on match: " + matched;
           }
           if (!ending && !signatureMaybe) {
-            throw "Expected signature on start of block";
+            log('WARNING: block found without signature', blockName);
           }
 
           if (ending) {
@@ -132,7 +132,7 @@ Requires
         }
         return blocks;
     }
-    
+
     function replaceBlocks(html, forceReload) {
         log('replaceBlocks');
 
@@ -157,7 +157,7 @@ Requires
             if (blockName in oldBlocks) {
                 var oldBlock = oldBlocks[blockName];
                 var newBlock = newBlocks[blockName];
-                if (oldBlock.signature === newBlock.signature && !forceReload) {
+                if (oldBlock.signature && newBlock.signature && oldBlock.signature === newBlock.signature && !forceReload) {
                     log('Not replacing block, signatures match.', blockName, oldBlock.signature);
                     continue; // The block is the same, no need to swap out the content.
                 }
@@ -166,7 +166,7 @@ Requires
                 $(siblingsBetween(oldBlock.nodes[0], oldBlock.nodes[1])).remove();
 
                 log('Replacing block', blockName, newBlock.html);
-                // methods._loadBlock must be called from inside newBlock.html so that mutations block as 
+                // methods._loadBlock must be called from inside newBlock.html so that mutations block as
                 //   would normally happen with inline scripts.
                 $(oldBlock.nodes[0]).after(newBlock.html +
                 '<script type="text/javascript">' +
@@ -223,7 +223,7 @@ Requires
             return;
         }
 
-        //deal with multiple pending requests by always having the 
+        //deal with multiple pending requests by always having the
         // last-requested win, rather than last-responded.
         upcomingLocation = expectedLocation;
         function makeSuccessor(expectedLocation) {
@@ -237,7 +237,7 @@ Requires
                   jsonData = $.parseJSON(data);
               }
               catch (ex) {};
-              
+
               // If response body contains a redirect location, perform the redirect.
               // This is an xhr-compatible proxy for 301/302 responses.
               if (jsonData && jsonData.redirectLocation) {
@@ -305,7 +305,7 @@ Requires
         };
         this.clearTimeout = window.clearTimeout;
         this.clearInterval = window.clearInterval;
-        
+
         this.addScript = function(src, loadOnce) {
             loadOnce = loadOnce === undefined ? true : loadOnce;
             if (!(loadOnce && this.scripts[src])) {
@@ -357,7 +357,7 @@ Requires
         hash = (hash.charAt(0) === "#" ? hash.substr(1) : hash);
         var subhashIndex = hash.lastIndexOf(HASH_REPLACEMENT);
         var page, subhash;
-        
+
         if (subhashIndex == -1) {
             return hash;
         } else {
@@ -441,7 +441,7 @@ Requires
                 return parts.hash;
             }
         };
-        
+
         this.href = function(value) {  // http://www.google.com:80/search?q=devmo#test
             if (value === undefined) {
                 return this.protocol() + '//' + this.host() + this.pathname() + this.search() + this.hash();
@@ -502,7 +502,7 @@ Requires
         iframe = $("<iframe style='height:0px;width:0px;display:none' id='" + resolverId + "'" + src + "></iframe>");
         $("body").append(iframe);
         if (!$.browser.mozilla) { //work around content document not being immediately ready.
-            setTimeout(function() { 
+            setTimeout(function() {
                 var childDoc = $("#"+resolverId).get(0).contentWindow.document;
                 $("head", childDoc).append($("<base href='" + baseURL + "'>", childDoc));
                 callback();
@@ -518,7 +518,7 @@ Requires
         $("body", childDoc).append($("<p><a href='" + url + "'>&nbsp;</a></p>", childDoc));
         return $("a", childDoc).get(0).href;
     }
-    
+
 
     methods = {
         init: function(explicitOpts) {
@@ -555,7 +555,7 @@ Requires
                 location.hash = hash;
                 return false;
             });
-            
+
             liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
             $(liveFormsSel).live('submit', function(event) {
                 var href = resolve(this.getAttribute('action') || "."),
@@ -575,7 +575,7 @@ Requires
                 var submitter = this.submitter;
                 if (submitter) {
                     data += (data.length === 0 ? "" : "&") + (
-                        encodeURIComponent($(submitter).attr("name")) 
+                        encodeURIComponent($(submitter).attr("name"))
                         + "=" + encodeURIComponent($(submitter).attr("value"))
                     );
                 }
