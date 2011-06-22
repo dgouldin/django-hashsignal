@@ -11,7 +11,7 @@
       window.location = '/a/#' + href;
   }
   </script>
-  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.js"></script>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.js"></script>
   <script type="text/javascript" src="{{ MEDIA_URL }}js/jquery.ba-hashchange.min.js"></script>
   <script type="text/javascript" src="{{ MEDIA_URL }}js/jquery.hashsignal.js"></script>
   <style>
@@ -19,6 +19,7 @@
     color: orange;
   }
   </style>
+  {% ajaxblock css %}{% endblock %}
 </head>
 <body>
   <ul id="navbar">
@@ -30,13 +31,14 @@
     <li><a href="about:blank">Alternate scheme links work.</a></li>
     <li><a href="https://github.com/">So do off-site links.</a></li>
     <li><a href="/relatives/">And so do relative links.</a></li>
+    <li><a href="/stylesheet/">Same-domain CSS externals can be async loaded and inlined to avoid FOUC.</a></li>
     <li><a href="/form/get/">Form can use GET.</a></li>
     <li><a href="/form/post/">Forms can also use POST.</a></li>
     <li><a href="/upload/">Forms with files can't use hash-signaling (sorry).</a></li>
     <li><a href="/redirect/ajax/?to=/page/1/%2523bottom">*Firefox: AjaxResponseRedirect redirect to bottom of Page 1</a></li>
     <li><a href="/redirect/middleware/?to=/page/1/%2523bottom">*Firefox: AjaxRedirectMiddlware redirect to bottom of Page 1</a></li>
     <li><a href="/redirect/ajax/?to=/page/1/%23bottom">*Webkit: AjaxResponseRedirect redirect to bottom of Page 1</a></li>
-    <li><a href="/redirect/middleware/?to=/page/1/%23bottom">*Webkit: AjaxRedirectMiddlware redirect to bottom of Page 1</a></li>    
+    <li><a href="/redirect/middleware/?to=/page/1/%23bottom">*Webkit: AjaxRedirectMiddlware redirect to bottom of Page 1</a></li>
   </ul>
   <p>*: Encoding a hash into a link is treated differently in different browsers: Firefox has a <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=483304">bug (483304)</a> that requires double-escaping hash.  (If we're wrong here, would love to hear otherwise.)
   <div id="content">
@@ -58,13 +60,13 @@
     });
     $.hashsignal.init({
         debug: true,
-        beforeUpdate: function() { 
+        beforeUpdate: function() {
           $("#spinner").show();
         },
         afterUpdate: function() {
           $("#spinner").hide();
         },
-        errorUpdate: function(xhr, status, error) { 
+        errorUpdate: function(xhr, status, error) {
           $("#spinner").hide();
           var reason;
           //Only works with Django DEBUG=True
@@ -74,7 +76,8 @@
           alert("Failed: (" + status + ") " +
             (reason ? reason : "unknown")
           );
-        }
+        },
+        inlineStylesheets: true
     });
   });
   </script>

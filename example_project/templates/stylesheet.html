@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Stylesheet test{% endblock %}
+
+{% block css %}
+<!-- same domain -->
+<link rel="stylesheet" href="{{ MEDIA_URL }}css/stylesheet.css">
+<!-- cross domain (will load normally) -->
+<link rel="stylesheet" href="http://www.csszengarden.com/213/213.css">
+{% endblock %}
+
+{% block content %}
+<p class="blue">This text will be blue once the stylesheet has loaded.</p>
+<p>Something looks different about this page, but I can't put my finger on it ...</p>
+{% endblock %}

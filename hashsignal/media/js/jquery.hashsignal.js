@@ -35,7 +35,8 @@ Requires
         },
         debug: false,
         disabled: false,
-        resolverId: "hashsignal-abs"
+        resolverId: "hashsignal-abs",
+        inlineStylesheets: false
     };
 
     var methods, ALWAYS_RELOAD = '__all__', HASH_REPLACEMENT = ':',
@@ -43,6 +44,31 @@ Requires
         previousSubhash = null,
         transitions = {}, liveFormsSel, document = window.document,
         location = window.location, history = window.history;
+
+    function isCrossDomain(url) {
+      // taken straight from jQuery:
+      // https://github.com/jquery/jquery/blob/master/src/ajax.js
+      var ajaxLocation, ajaxLocParts, parts;
+      var rurl = /^([\w\+\.\-]+:)(?:\/\/([^\/?#:]*)(?::(\d+))?)?/;
+
+      try {
+        ajaxLocation = window.location.href;
+      } catch( e ) {
+        ajaxLocation = window.document.createElement( "a" );
+        ajaxLocation.href = "";
+        ajaxLocation = ajaxLocation.href;
+      }
+
+      // Segment location into parts
+      ajaxLocParts = rurl.exec( ajaxLocation.toLowerCase() ) || [];
+      parts = rurl.exec( url.toLowerCase() );
+      return !!( parts &&
+        ( parts[ 1 ] != ajaxLocParts[ 1 ] || parts[ 2 ] != ajaxLocParts[ 2 ] ||
+          ( parts[ 3 ] || ( parts[ 1 ] === "http:" ? 80 : 443 ) ) !=
+          ( ajaxLocParts[ 3 ] || ( ajaxLocParts[ 1 ] === "http:" ? 80 : 443 ) )
+        )
+      );
+    }
 
     function blockAction(actionName, blockName) {
         /* DRYs up _unloadBlock and _loadBlock below */
@@ -94,17 +120,20 @@ Requires
         return blocks;
     }
 
-    function getNewBlocks(html) {
+    function getNewBlocks(html, callback) {
         var blocker = /<!-- (end)?block ([^ ]*) ([0123456789abcdef]{32} )?-->/gi;
+        var stylesheet = /<link.+?(rel=["']?stylesheet["'\s])?.*?href=["']?(.+?)["'\s].*?(rel=["']?stylesheet["'\s])?.*?>/gi;
         var starts = []; //stack of {name:a, signature:x, start:y};
         var closing;
         var blocks = {}; //name: {signature:x, html:z}
+        var stylesheetPromises = [];
 
         function last() {
           return starts[starts.length-1];
         }
 
         html.replace(blocker, function(matched, ending, blockName, signatureMaybe, offset, fullString) {
+          var blockName;
           if (ending && starts.length === 0) {
             throw "Unexpected block nesting on match: " + matched;
           }
@@ -114,11 +143,30 @@ Requires
 
           if (ending) {
             closing = last();
+            blockName = closing.name;
             starts.length = starts.length-1;
-            blocks[closing.name] = {
+            blocks[blockName] = {
               html: fullString.slice(closing.start, offset),
               signature: closing.signature
             };
+
+            if (activeOpts.inlineStylesheets) {
+              // begin async loading stylesheets for inline replacement
+              blocks[blockName].html.replace(stylesheet, function(sMatched, preRel, href, postRel, offset, sFullString) {
+                if (!isCrossDomain(href) && (
+                  preRel.toLowerCase().indexOf('stylesheet') !== -1 || postRel.toLowerCase().indexOf('stylesheet') !== -1)
+                ) {
+                  stylesheetPromises.push($.ajax({
+                    dataType: "text",
+                    url: href
+                  }).done(function(css) {
+                    var blockHtml = blocks[blockName].html;
+                    blocks[blockName].html = blockHtml.substring(0, offset) +
+                      '<style type="text/css">' + css + '</style>' + blockHtml.substring(offset + sMatched.length);
+                  }));
+                }
+              });
+            }
           } else {
             starts.push({
               name: blockName,
@@ -130,7 +178,14 @@ Requires
         if (0 !== starts.length) {
           throw "Unclosed block: " + last().name;
         }
-        return blocks;
+
+        if (stylesheetPromises.length > 0) {
+          $.when.apply($, stylesheetPromises).then(function() {
+            callback(blocks);
+          });
+        } else {
+          callback(blocks);
+        }
     }
 
     function replaceBlocks(html, forceReload) {
@@ -149,50 +204,50 @@ Requires
         }
 
         var oldBlocks = getOldBlocks();
-        var newBlocks = getNewBlocks(html);
+        getNewBlocks(html, function(newBlocks) {
+          methods._unloadBlock(ALWAYS_RELOAD);
 
-        methods._unloadBlock(ALWAYS_RELOAD);
-
-        for (var blockName in newBlocks) {
-            if (blockName in oldBlocks) {
-                var oldBlock = oldBlocks[blockName];
-                var newBlock = newBlocks[blockName];
-                if (oldBlock.signature && newBlock.signature && oldBlock.signature === newBlock.signature && !forceReload) {
-                    log('Not replacing block, signatures match.', blockName, oldBlock.signature);
-                    continue; // The block is the same, no need to swap out the content.
-                }
-
-                methods._unloadBlock(blockName);
-                $(siblingsBetween(oldBlock.nodes[0], oldBlock.nodes[1])).remove();
-
-                log('Replacing block', blockName, newBlock.html);
-                // methods._loadBlock must be called from inside newBlock.html so that mutations block as
-                //   would normally happen with inline scripts.
-                $(oldBlock.nodes[0]).after(newBlock.html +
-                '<script type="text/javascript">' +
-                '  jQuery.hashsignal._loadBlock("' + blockName.replace('"', '\\"') + '");' +
-                '</scr' + 'ipt>' /*+ '<div id="hashsignal-' + insertId + '">&nbsp;</div>'*/);
-                /*if (0 == $("#hashsignal-" + insertId).length) {
-                  if (window.console && window.console.error) {
-                    window.console.error("Unable to insert into " + blockName + " - is your HTML valid?");
+          for (var blockName in newBlocks) {
+              if (blockName in oldBlocks) {
+                  var oldBlock = oldBlocks[blockName];
+                  var newBlock = newBlocks[blockName];
+                  if (oldBlock.signature && newBlock.signature && oldBlock.signature === newBlock.signature && !forceReload) {
+                      log('Not replacing block, signatures match.', blockName, oldBlock.signature);
+                      continue; // The block is the same, no need to swap out the content.
                   }
-                }*/
-                insertId += 1;
 
-                // update block signature
-                $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + newBlock.signature + "-->");
-            } else {
-                log('WARNING: unmatched block', blockName);
-            }
-        }
-        methods._loadBlock(ALWAYS_RELOAD);
+                  methods._unloadBlock(blockName);
+                  $(siblingsBetween(oldBlock.nodes[0], oldBlock.nodes[1])).remove();
 
-        // update title
-        var titleRe = /<title>(.*)<\/title>/;
-        var titleMatch = titleRe.exec(html);
-        if (titleMatch) {
-            document.title = titleMatch[1];
-        }
+                  log('Replacing block', blockName, newBlock.html);
+                  // methods._loadBlock must be called from inside newBlock.html so that mutations block as
+                  //   would normally happen with inline scripts.
+                  $(oldBlock.nodes[0]).after(newBlock.html +
+                  '<script type="text/javascript">' +
+                  '  jQuery.hashsignal._loadBlock("' + blockName.replace('"', '\\"') + '");' +
+                  '</scr' + 'ipt>' /*+ '<div id="hashsignal-' + insertId + '">&nbsp;</div>'*/);
+                  /*if (0 == $("#hashsignal-" + insertId).length) {
+                    if (window.console && window.console.error) {
+                      window.console.error("Unable to insert into " + blockName + " - is your HTML valid?");
+                    }
+                  }*/
+                  insertId += 1;
+
+                  // update block signature
+                  $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + newBlock.signature + "-->");
+              } else {
+                  log('WARNING: unmatched block', blockName);
+              }
+          }
+          methods._loadBlock(ALWAYS_RELOAD);
+
+          // update title
+          var titleRe = /<title>(.*)<\/title>/;
+          var titleMatch = titleRe.exec(html);
+          if (titleMatch) {
+              document.title = titleMatch[1];
+          }
+        });
     }
 
     function updatePage(opts) {
@@ -409,7 +464,7 @@ Requires
             protocol: '', // http:
             hostname: '', // www.google.com
             pathname: '', // /search
-            search: '',  // ?q=devmo
+            search: ''  // ?q=devmo
         };
         var that = this;
         var partFunc = function(k) {
@@ -546,12 +601,11 @@ Requires
             }
             $('a:not(' + activeOpts.excludeSelector + ')').live('click', function() {
                 var href = resolve(this.getAttribute('href') || ".");
-                var path = pathOf(href);
 
-                if (!path) { //off-site links act normally.
+                if (isCrossDomain(href)) { //off-site links act normally.
                   return true;
                 }
-                var hash = hrefToHash(path);
+                var hash = hrefToHash(pathOf(href));
                 location.hash = hash;
                 return false;
             });
@@ -560,7 +614,7 @@ Requires
             $(liveFormsSel).live('submit', function(event) {
                 var href = resolve(this.getAttribute('action') || "."),
                     path = pathOf(href);
-                if (!path) { //off-site forms act normally.
+                if (isCrossDomain(href)) { //off-site forms act normally.
                     return true;
                 }
 
