@@ -160,9 +160,8 @@ Requires
                     dataType: "text",
                     url: href
                   }).done(function(css) {
-                    var blockHtml = blocks[blockName].html;
-                    blocks[blockName].html = blockHtml.substring(0, offset) +
-                      '<style type="text/css">' + css + '</style>' + blockHtml.substring(offset + sMatched.length);
+                    blocks[blockName].html = blocks[blockName].html.replace(sMatched,
+                      '<style type="text/css">' + css + '</style>');
                   }));
                 }
               });
