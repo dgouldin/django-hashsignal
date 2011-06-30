@@ -235,7 +235,7 @@ Requires
                   insertId += 1;
 
                   // update block signature
-                  $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + newBlock.signature + "-->");
+                  $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + (newBlock.signature || "") + "-->");
               } else {
                   log('WARNING: unmatched block', blockName);
               }
