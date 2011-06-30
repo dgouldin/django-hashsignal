@@ -181,6 +181,8 @@ Requires
         if (stylesheetPromises.length > 0) {
           $.when.apply($, stylesheetPromises).then(function() {
             callback(blocks);
+          }, function() {
+            callback(blocks);
           });
         } else {
           callback(blocks);
