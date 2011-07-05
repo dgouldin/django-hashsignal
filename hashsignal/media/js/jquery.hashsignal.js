@@ -9,6 +9,39 @@ Requires
 */
 
 (function(window, $, undefined){
+    function strip(s, chars) {
+      // strips chars from the beginning and end of s,
+      // returns the modified string
+      var str = String(s),
+          i;
+
+      chars = chars || ' ';
+      for (i = 0; i < str.length; i++) {
+        if (chars.indexOf(str.charAt(i)) === -1) {
+          str = str.substring(i);
+          break;
+        }
+      }
+      for (i = str.length - 1; i >= 0; i--) {
+        if (chars.indexOf(str.charAt(i)) === -1) {
+          str = str.substring(0, i + 1);
+          break;
+        }
+      }
+      return chars.indexOf(str.charAt(0)) === -1 ? str : '';
+    }
+    function unquote(s) {
+      var str = String(s);
+
+      $.each("'\"", function(i, quote) {
+        if (str.charAt(0) === quote && str.charAt(str.length - 1) === quote) {
+          str = str.substring(1, str.length - 1);
+          return false;
+        }
+      });
+      return str;
+    }
+
     var activeOpts, defaultOpts, insertId = 0;
 
     function log() {
@@ -247,6 +280,39 @@ Requires
           var titleMatch = titleRe.exec(html);
           if (titleMatch) {
               document.title = titleMatch[1];
+          }
+
+          // replace old body attributes with new ones
+          var bodyRe = /<body([^>]*)>/;
+          var bodyMatch = bodyRe.exec(html);
+          var bodyAttrs = {};
+          var currentBody = $('body');
+          if (bodyMatch) {
+            $.each(strip(bodyMatch[1]).split(' '), function(i, attrText) {
+              var attrParts = attrText.split('=', 2);
+              if (attrParts.length !== 2) {
+                return; // can't find a key/value pair, skip it
+              }
+              bodyAttrs[strip(attrParts[0])] = unquote(strip(attrParts[1]));
+            });
+
+            $.each(currentBody.get(0).attributes, function(i, attr) {
+              // WARNING: attributes behavior is not very cross-browser friendly.
+              // see: http://www.quirksmode.org/dom/w3c_core.html#attributes
+              var key = attr.name;
+              if (key === undefined) {
+                return;
+              }
+              if (bodyAttrs[key]) {
+                if (bodyAttrs[key] !== currentBody.attr(key)) {
+                  currentBody.attr(key, bodyAttrs[key])
+                }
+                delete bodyAttrs[key];
+              } else {
+                currentBody.removeAttr(key);
+              }
+            });
+            currentBody.attr(bodyAttrs);
           }
         });
     }

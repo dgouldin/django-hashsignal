@@ -6,6 +6,8 @@ from django.conf.urls.defaults import *
 urlpatterns = patterns('',
     url(r'^$', 'django.views.generic.simple.direct_to_template',
         {'template': 'homepage.html'}),
+    url(r'^body-attrs/$', 'django.views.generic.simple.direct_to_template',
+        {'template': 'body_attrs.html'}),
     url(r'error/$', 'views.example_error'),
     url(r'^page/1/$', 'django.views.generic.simple.direct_to_template',
         {'template': 'page1.html'}),

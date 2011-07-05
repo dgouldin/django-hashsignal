@@ -18,12 +18,15 @@
   .clicked {
     color: orange;
   }
+  body.body-attrs p.body-attrs {
+    color: blue;
+  }
   </style>
   {% ajaxblock css %}{% endblock %}
   <!-- block ALWAYS_REPLACE -->
   <!-- endblock ALWAYS_REPLACE -->
 </head>
-<body>
+<body {% block body_attrs %}{% endblock %}>
   <ul id="navbar">
     <li><a href="/">Homepage</a></li>
     <li><a href="/page/1/">Pages can have anchors; document.write doesn't kill.</a></li>
@@ -34,6 +37,7 @@
     <li><a href="https://github.com/">So do off-site links.</a></li>
     <li><a href="/relatives/">And so do relative links.</a></li>
     <li><a href="/stylesheet/">Same-domain CSS externals can be async loaded and inlined to avoid FOUC.</a></li>
+    <li><a href="/body-attrs/">Body attributes are updated on each page load.</a></li>
     <li><a href="/form/get/">Form can use GET.</a></li>
     <li><a href="/form/post/">Forms can also use POST.</a></li>
     <li><a href="/upload/">Forms with files can't use hash-signaling (sorry).</a></li>

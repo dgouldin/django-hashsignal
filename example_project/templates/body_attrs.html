@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% load hashsignal %}
+
+{% block title %}Body Attributes{% endblock %}
+
+{% block body_attrs %}class="body-attrs"{% endblock %}
+
+{% block content %}
+<p>All attributes on the body tag will be updated on every page load.</p>
+<p class="body-attrs">This paragraph is in blue due to a class added to body.</p>
+{% endblock %}
