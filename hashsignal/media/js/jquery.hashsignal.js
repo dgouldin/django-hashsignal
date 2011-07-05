@@ -237,6 +237,8 @@ Requires
             return siblings;
         }
 
+        var oldBlocks = getOldBlocks();
+        getNewBlocks(html, function(newBlocks) {
 
           // update title
           var titleRe = /<title>(.*)<\/title>/;
@@ -292,10 +294,7 @@ Requires
             });
             oldBody.attr(newBodyAttrs);
           }
-        });
 
-        var oldBlocks = getOldBlocks();
-        getNewBlocks(html, function(newBlocks) {
           methods._unloadBlock(ALWAYS_RELOAD);
 
           for (var blockName in newBlocks) {
@@ -331,6 +330,7 @@ Requires
               }
           }
           methods._loadBlock(ALWAYS_RELOAD);
+        });
     }
 
     function updatePage(opts) {
