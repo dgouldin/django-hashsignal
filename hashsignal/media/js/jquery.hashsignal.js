@@ -187,7 +187,7 @@ Requires
               // begin async loading stylesheets for inline replacement
               blocks[blockName].html.replace(stylesheet, function(sMatched, preRel, href, postRel, offset, sFullString) {
                 if (!isCrossDomain(href) && (
-                  preRel.toLowerCase().indexOf('stylesheet') !== -1 || postRel.toLowerCase().indexOf('stylesheet') !== -1)
+                  preRel && preRel.toLowerCase().indexOf('stylesheet') !== -1 || postRel && postRel.toLowerCase().indexOf('stylesheet') !== -1)
                 ) {
                   stylesheetPromises.push($.ajax({
                     dataType: "text",
