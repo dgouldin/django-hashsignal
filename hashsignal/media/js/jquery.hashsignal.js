@@ -283,36 +283,50 @@ Requires
           }
 
           // replace old body attributes with new ones
-          var bodyRe = /<body([^>]*)>/;
-          var bodyMatch = bodyRe.exec(html);
-          var bodyAttrs = {};
-          var currentBody = $('body');
-          if (bodyMatch) {
-            $.each(strip(bodyMatch[1]).split(' '), function(i, attrText) {
-              var attrParts = attrText.split('=', 2);
-              if (attrParts.length !== 2) {
-                return; // can't find a key/value pair, skip it
-              }
-              bodyAttrs[strip(attrParts[0])] = unquote(strip(attrParts[1]));
-            });
+          var oldBody = $('body'),
+              bodyRe = /<body([^>]*)>/,
+              bodyMatch = bodyRe.exec(html),
+              oldBodyAttrs, newBodyAttrs,
+              fakeHtml, newBody;
 
-            $.each(currentBody.get(0).attributes, function(i, attr) {
-              // WARNING: attributes behavior is not very cross-browser friendly.
-              // see: http://www.quirksmode.org/dom/w3c_core.html#attributes
-              var key = attr.name;
-              if (key === undefined) {
-                return;
-              }
-              if (bodyAttrs[key]) {
-                if (bodyAttrs[key] !== currentBody.attr(key)) {
-                  currentBody.attr(key, bodyAttrs[key])
+          if (bodyMatch) {
+            fakeHtml = window.document.createElement('html');
+            fakeHtml.innerHTML = '<body ' + bodyMatch[1] + '></body>';
+            newBody = $('body', fakeHtml);
+
+            function getBodyAttrs(body) {
+              var bodyAttrs = {};
+              $.each(body.get(0).attributes, function(i, attr) {
+                // WARNING: attributes behavior is not very cross-browser friendly.
+                // see: http://www.quirksmode.org/dom/w3c_core.html#attributes
+                if (!(!!attr && attr.name)) {
+                  return;
                 }
-                delete bodyAttrs[key];
+
+                var key = attr.name,
+                    value = body.attr(key);
+
+                if (value) {
+                  bodyAttrs[key] = value;
+                }
+              });
+              return bodyAttrs;
+            }
+            oldBodyAttrs = getBodyAttrs(oldBody);
+            newBodyAttrs = getBodyAttrs(newBody);
+
+            $.each(oldBodyAttrs, function(key, oldValue) {
+              var newValue = newBodyAttrs[key];
+
+              if (newValue) {
+                if (newValue !== oldValue) {
+                  oldBody.attr(key, newValue)
+                delete newBodyAttrs[key];
               } else {
-                currentBody.removeAttr(key);
+                oldBody.removeAttr(key);
               }
             });
-            currentBody.attr(bodyAttrs);
+            oldBody.attr(newBodyAttrs);
           }
         });
     }
