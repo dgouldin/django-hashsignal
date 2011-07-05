@@ -237,43 +237,6 @@ Requires
             return siblings;
         }
 
-        var oldBlocks = getOldBlocks();
-        getNewBlocks(html, function(newBlocks) {
-          methods._unloadBlock(ALWAYS_RELOAD);
-
-          for (var blockName in newBlocks) {
-              if (blockName in oldBlocks) {
-                  var oldBlock = oldBlocks[blockName];
-                  var newBlock = newBlocks[blockName];
-                  if (oldBlock.signature && newBlock.signature && oldBlock.signature === newBlock.signature && !forceReload) {
-                      log('Not replacing block, signatures match.', blockName, oldBlock.signature);
-                      continue; // The block is the same, no need to swap out the content.
-                  }
-
-                  methods._unloadBlock(blockName);
-                  $(siblingsBetween(oldBlock.nodes[0], oldBlock.nodes[1])).remove();
-
-                  log('Replacing block', blockName, newBlock.html);
-                  // methods._loadBlock must be called from inside newBlock.html so that mutations block as
-                  //   would normally happen with inline scripts.
-                  $(oldBlock.nodes[0]).after(newBlock.html +
-                  '<script type="text/javascript">' +
-                  '  jQuery.hashsignal._loadBlock("' + blockName.replace('"', '\\"') + '");' +
-                  '</scr' + 'ipt>' /*+ '<div id="hashsignal-' + insertId + '">&nbsp;</div>'*/);
-                  /*if (0 == $("#hashsignal-" + insertId).length) {
-                    if (window.console && window.console.error) {
-                      window.console.error("Unable to insert into " + blockName + " - is your HTML valid?");
-                    }
-                  }*/
-                  insertId += 1;
-
-                  // update block signature
-                  $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + (newBlock.signature || "") + "-->");
-              } else {
-                  log('WARNING: unmatched block', blockName);
-              }
-          }
-          methods._loadBlock(ALWAYS_RELOAD);
 
           // update title
           var titleRe = /<title>(.*)<\/title>/;
@@ -330,6 +293,44 @@ Requires
             oldBody.attr(newBodyAttrs);
           }
         });
+
+        var oldBlocks = getOldBlocks();
+        getNewBlocks(html, function(newBlocks) {
+          methods._unloadBlock(ALWAYS_RELOAD);
+
+          for (var blockName in newBlocks) {
+              if (blockName in oldBlocks) {
+                  var oldBlock = oldBlocks[blockName];
+                  var newBlock = newBlocks[blockName];
+                  if (oldBlock.signature && newBlock.signature && oldBlock.signature === newBlock.signature && !forceReload) {
+                      log('Not replacing block, signatures match.', blockName, oldBlock.signature);
+                      continue; // The block is the same, no need to swap out the content.
+                  }
+
+                  methods._unloadBlock(blockName);
+                  $(siblingsBetween(oldBlock.nodes[0], oldBlock.nodes[1])).remove();
+
+                  log('Replacing block', blockName, newBlock.html);
+                  // methods._loadBlock must be called from inside newBlock.html so that mutations block as
+                  //   would normally happen with inline scripts.
+                  $(oldBlock.nodes[0]).after(newBlock.html +
+                  '<script type="text/javascript">' +
+                  '  jQuery.hashsignal._loadBlock("' + blockName.replace('"', '\\"') + '");' +
+                  '</scr' + 'ipt>' /*+ '<div id="hashsignal-' + insertId + '">&nbsp;</div>'*/);
+                  /*if (0 == $("#hashsignal-" + insertId).length) {
+                    if (window.console && window.console.error) {
+                      window.console.error("Unable to insert into " + blockName + " - is your HTML valid?");
+                    }
+                  }*/
+                  insertId += 1;
+
+                  // update block signature
+                  $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + (newBlock.signature || "") + "-->");
+              } else {
+                  log('WARNING: unmatched block', blockName);
+              }
+          }
+          methods._loadBlock(ALWAYS_RELOAD);
     }
 
     function updatePage(opts) {
