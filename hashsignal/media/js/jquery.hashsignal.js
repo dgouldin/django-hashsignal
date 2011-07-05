@@ -321,6 +321,7 @@ Requires
               if (newValue) {
                 if (newValue !== oldValue) {
                   oldBody.attr(key, newValue)
+                }
                 delete newBodyAttrs[key];
               } else {
                 oldBody.removeAttr(key);
