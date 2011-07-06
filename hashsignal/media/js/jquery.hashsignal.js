@@ -330,10 +330,12 @@ Requires
           bodyRe = /<body([^>]*)>/,
           bodyMatch = bodyRe.exec(html),
           oldBodyAttrs, newBodyAttrs,
-          fakeHtml, newBody;
+          fakeDoc, namespaceURI, fakeHtml, newBody;
 
       if (bodyMatch) {
-        fakeHtml = window.document.createElement('html');
+        namespaceURI = window.document.namespaceURI || 'http://www.w3.org/1999/xhtml';
+        fakeDoc = document.implementation.createDocument (namespaceURI, 'html', null);
+        fakeHtml = fakeDoc.documentElement;
         fakeHtml.innerHTML = '<body ' + bodyMatch[1] + '></body>';
         newBody = $('body', fakeHtml);
 
