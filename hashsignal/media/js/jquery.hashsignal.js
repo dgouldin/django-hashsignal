@@ -411,6 +411,9 @@ Requires
             success: makeSuccessor(expectedLocation),
             beforeSend: function(xhr) {
               xhr.setRequestHeader('X-Hashsignal', 'Hashsignal'); //Used to tell server to send Ajax-friendly redirects.
+              if (previousLocation) {
+                xhr.setRequestHeader('X-Hashsignal-Referer', absoluteHref(previousLocation));
+              }
             },
             type: o.type,
             url: expectedLocation
@@ -503,6 +506,9 @@ Requires
             subhash = decodeURIComponent(hash.substr(subhashIndex+1));
             return page + (subhash ? "#" + subhash : "");
         }
+    }
+    function absoluteHref(href) {
+      return $('<a></a>').attr('href', href).get(0).href
     }
 
     function Location(url) {
@@ -752,9 +758,10 @@ Requires
             var that = {};
             $(properties).each(function(i, property) {
                 that[property] = function(value) {
-                    var l = new Location(hashToHref(location.hash));
+                    var href = absoluteHref(hashToHref(location.hash));
+                    var l = new Location(href);
                     if (!l) {
-                        throw "Could not parse current location! " + hashToHref(location.hash);
+                        throw "Could not parse current location! " + href;
                     }
                     if (value === undefined) {
                         return l[property]();
