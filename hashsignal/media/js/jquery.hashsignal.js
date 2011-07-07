@@ -126,12 +126,8 @@ Requires
       callback();
     }
   }
-  function resolve(url, resolverId) {
-    resolverId = resolverId || activeOpts.resolverId;
-    var childDoc = $("#" + resolverId).get(0).contentWindow.document;
-    $("a", childDoc).remove();
-    $("body", childDoc).append($("<p><a href='" + url + "'>&nbsp;</a></p>", childDoc));
-    return $("a", childDoc).get(0).href;
+  function resolve(url) {
+    return $('<a href="' + url + '"></a>').get(0).href;
   }
 
   function log() {
@@ -297,19 +293,19 @@ Requires
     }
 
     function getBodyAttrs(body) {
-      var bodyAttrs = {};
-      $.each(body.get(0).attributes, function(i, attr) {
+      var bodyAttrs = {},
+          // these are attrs which may be reported as present
+          // but cannot be modified, so we must skip.
+          blacklist = 'contentEditable';
+      $.each(body.attributes, function(i, attr) {
         // WARNING: attributes behavior is not very cross-browser friendly.
         // see: http://www.quirksmode.org/dom/w3c_core.html#attributes
-        if (!(!!attr && attr.name)) {
+        if (!(!!attr && attr.name) || blacklist.indexOf(attr.name) !== -1) {
           return;
         }
 
-        var key = attr.name,
-            value = body.attr(key);
-
-        if (value) {
-          bodyAttrs[key] = value;
+        if (attr.value) {
+          bodyAttrs[attr.name] = attr.value;
         }
       });
       return bodyAttrs;
@@ -333,28 +329,41 @@ Requires
           fakeDoc, namespaceURI, fakeHtml, newBody;
 
       if (bodyMatch) {
-        namespaceURI = window.document.namespaceURI || 'http://www.w3.org/1999/xhtml';
-        fakeDoc = document.implementation.createDocument (namespaceURI, 'html', null);
-        fakeHtml = fakeDoc.documentElement;
-        fakeHtml.innerHTML = '<body ' + bodyMatch[1] + '></body>';
-        newBody = $('body', fakeHtml);
+        if (window.document.implementation && window.document.implementation.createDocument) {
+          namespaceURI = window.document.namespaceURI || 'http://www.w3.org/1999/xhtml';
+          fakeDoc = window.document.implementation.createDocument(namespaceURI, 'html', null);
+          fakeHtml = fakeDoc.documentElement;
+          fakeHtml.innerHTML = '<body ' + bodyMatch[1] + '></body>';
+          newBody = $('body', fakeHtml).get(0);
+        } else if (window.ActiveXObject) {
+          // For IE
+          // NOTE: requires valid xml body attributes!
+          try {
+            fakeDoc = new ActiveXObject("Microsoft.XMLDOM");
+            fakeDoc.async = false;
+            fakeDoc.loadXML('<body ' + bodyMatch[1] + '></body>');
+            newBody = fakeDoc.documentElement;
+          } catch(e) {}
+        }
 
-        oldBodyAttrs = getBodyAttrs(oldBody);
-        newBodyAttrs = getBodyAttrs(newBody);
+        if (newBody) {
+          oldBodyAttrs = getBodyAttrs(oldBody.get(0));
+          newBodyAttrs = getBodyAttrs(newBody);
 
-        $.each(oldBodyAttrs, function(key, oldValue) {
-          var newValue = newBodyAttrs[key];
+          $.each(oldBodyAttrs, function(key, oldValue) {
+            var newValue = newBodyAttrs[key];
 
-          if (newValue) {
-            if (newValue !== oldValue) {
-              oldBody.attr(key, newValue);
+            if (newValue) {
+              if (newValue !== oldValue) {
+                oldBody.attr(key, newValue);
+              }
+              delete newBodyAttrs[key];
+            } else {
+              oldBody.removeAttr(key);
             }
-            delete newBodyAttrs[key];
-          } else {
-            oldBody.removeAttr(key);
-          }
-        });
-        oldBody.attr(newBodyAttrs);
+          });
+          oldBody.attr(newBodyAttrs);
+        }
       }
 
       methods._unloadBlock(ALWAYS_RELOAD);
@@ -694,9 +703,9 @@ Requires
 
       liveFormsSel = 'form:not(' + activeOpts.excludeSelector + ')';
       $(liveFormsSel).live('submit', function(event) {
-        var href = resolve(this.getAttribute('action') || "."),
+        var href = resolve($(this).attr('action') || "."),
             path = pathOf(href);
-        if (isCrossDomain(href)) { //off-site forms act normally.
+        if (isCrossDomain(href) || path === false) { //off-site forms act normally.
           return true;
         }
 
