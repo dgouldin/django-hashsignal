@@ -277,8 +277,9 @@ Requires
     }
   }
 
-  function replaceBlocks(html, forceReload) {
+  function replaceBlocks(html, forceReload, callback) {
     log('replaceBlocks');
+    callback = callback || $.noop;
 
     function siblingsBetween(start, end) {
       var siblings = [];
@@ -396,6 +397,7 @@ Requires
         }
       }
       methods._loadBlock(ALWAYS_RELOAD);
+      callback();
     });
   }
 
@@ -453,15 +455,15 @@ Requires
         }
 
         setBase(urlPrefix() + expectedLocation);
-        replaceBlocks(data, o.forceReload);
+        replaceBlocks(data, o.forceReload, function() {
+          if (subhash) {
+            $(window).trigger('hashsignal.hashchange', [subhash]);
+          }
+          previousLocation = expectedLocation;
+          previousSubhash = subhash;
 
-        if (subhash) {
-          $(window).trigger('hashsignal.hashchange', [subhash]);
-        }
-        previousLocation = expectedLocation;
-        previousSubhash = subhash;
-
-        callbacks.afterUpdate();
+          callbacks.afterUpdate();
+        });
       };
     }
 
