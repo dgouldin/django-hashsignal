@@ -497,6 +497,7 @@ Requires
     }, opts);
 
     this.events = [];
+    this.delegates = [];
     this.timeouts = [];
     this.intervals = [];
     this.scripts = {};
@@ -506,6 +507,10 @@ Requires
       this.events.push([obj, eventType, handler]);
       return $(obj).bind(eventType, eventData, handler);
     };
+    this.delegate = function(obj, selector, eventType, eventData, handler) {
+      this.delegates.push([obj, selector, eventType, handler]);
+      return $(obj).delegate(selector, eventType, eventData, handler);
+    }
     this.setTimeout = function(callback, timeout) {
       this.timeouts.push(window.setTimeout(callback, timeout));
     };
@@ -541,10 +546,14 @@ Requires
     };
     this.unload = function() {
       if (!this.runOnce) {
-        var i;
+        var i, e;
         for (i = 0; i < this.events.length; i++) {
-          var e = this.events[i];
+          e = this.events[i];
           $(e[0]).unbind(e[1], e[2]);
+        }
+        for (i = 0; i < this.delegates.length; i++) {
+          e = this.delegates[i];
+          $(e[0]).undelegate(e[1], e[2], e[3]);
         }
         for (i = 0; i < this.timeouts.length; i++) {
           window.clearTimeout(this.timeouts[i]);
