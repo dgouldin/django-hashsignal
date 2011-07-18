@@ -155,7 +155,6 @@ Requires
     debug: false,
     disabled: false,
     resolverId: "hashsignal-abs",
-    cssContainerId: "hashsignal-css",
     inlineStylesheets: false
   };
 
@@ -215,7 +214,7 @@ Requires
     var stylesheet = /<link.+?(rel=["']?stylesheet["'\s])?.*?href=["']?(.+?)["'\s].*?(rel=["']?stylesheet["'\s])?.*?>/gi;
     var starts = []; //stack of {name:a, signature:x, start:y};
     var closing;
-    var blocks = []; //{name: x, signature:y, html:z}
+    var blocks = {}; //name: {signature:x, html:z}
     var stylesheetPromises = [];
 
     function last() {
@@ -234,18 +233,14 @@ Requires
         closing = last();
         blockName = closing.name;
         starts.length = starts.length-1;
-        var block = {
-          name: blockName,
+        blocks[blockName] = {
           html: fullString.slice(closing.start, offset),
-          signature: closing.signature,
-          css: []
+          signature: closing.signature
         };
-        blocks.push(block);
 
         if (activeOpts.inlineStylesheets) {
-          var controlColor = $('#' + activeOpts.cssContainerId + ' span.hashsignal-control').css('color');
           // begin async loading stylesheets for inline replacement
-          block.html.replace(stylesheet, function(sMatched, preRel, href, postRel, offset, sFullString) {
+          blocks[blockName].html.replace(stylesheet, function(sMatched, preRel, href, postRel, offset, sFullString) {
             if (!isCrossDomain(href) && (
               preRel && preRel.toLowerCase().indexOf('stylesheet') !== -1 || postRel && postRel.toLowerCase().indexOf('stylesheet') !== -1)
             ) {
@@ -253,32 +248,8 @@ Requires
                 dataType: "text",
                 url: href
               }).done(function(css) {
-                function randomColor() {
-                  var parts = [];
-                  for (var i = 0; i < 3; i++) {
-                    parts.push(~~(Math.random()*(255)));
-                  }
-                  return 'rgb(' + parts.join(', ') + ')';
-                }
-
-                var color = randomColor(),
-                    testClass = 'hashsignal-' + Math.random().toString().substr(2),
-                    style = '<style type="text/css" id="' + testClass + '">' +
-                      css +
-                      '.' + testClass + ' { color: ' + color + '; }' +
-                    '</style>';
-
-                while (color === controlColor) {
-                  color = randomColor();
-                }
-
-                block.html = block.html.replace(sMatched, style);
-                block.css.push({
-                  testClass: testClass,
-                  id: testClass,
-                  color: color,
-                  original: sMatched
-                });
+                blocks[blockName].html = blocks[blockName].html.replace(sMatched,
+                  '<style type="text/css">' + css + '</style>');
               }));
             }
           });
@@ -398,13 +369,13 @@ Requires
 
       methods._unloadBlock(ALWAYS_RELOAD);
 
-      $.each(newBlocks, function(i, newBlock) {
-        var blockName = newBlock.name;
+      for (var blockName in newBlocks) {
         if (blockName in oldBlocks) {
           var oldBlock = oldBlocks[blockName];
+          var newBlock = newBlocks[blockName];
           if (oldBlock.signature && newBlock.signature && oldBlock.signature === newBlock.signature && !forceReload) {
             log('Not replacing block, signatures match.', blockName, oldBlock.signature);
-            return; // The block is the same, no need to swap out the content.
+            continue; // The block is the same, no need to swap out the content.
           }
 
           methods._unloadBlock(blockName);
@@ -419,24 +390,12 @@ Requires
           '</scr' + 'ipt>');
           insertId += 1;
 
-          // check to make sure inline styles were applied correctly
-          var cssContainer = $("#" + activeOpts.cssContainerId);
-          $.each(newBlock.css, function(i, css) {
-            var styleTag,
-                span = $('<span class="' + css.testClass + '"></span>');
-            cssContainer.append(span);
-            if (span.css('color') !== css.color) {
-              $('#' + css.id).replaceWith(css.original);
-            }
-            span.remove();
-          });
-
           // update block signature
           $(oldBlock.nodes[0]).replaceWith("<!-- block " + blockName + " " + (newBlock.signature || "") + "-->");
         } else {
           log('WARNING: unmatched block', blockName);
         }
-      });
+      }
       methods._loadBlock(ALWAYS_RELOAD);
       callback();
     });
@@ -551,7 +510,7 @@ Requires
     this.delegate = function(obj, selector, eventType, eventData, handler) {
       this.delegates.push([obj, selector, eventType, handler]);
       return $(obj).delegate(selector, eventType, eventData, handler);
-    };
+    }
     this.setTimeout = function(callback, timeout) {
       this.timeouts.push(window.setTimeout(callback, timeout));
     };
@@ -802,11 +761,6 @@ Requires
         }
         return true;
       });
-
-      // add container element for inline style detection
-      $('body').append('<div id="' + activeOpts.cssContainerId + '" style="display: none;">' +
-        '<span class="hashsignal-control"></span>' +
-      '</div>');
       return this;
     },
     hashchange: function(callback) { // callback = function(e, hash) { ... }
