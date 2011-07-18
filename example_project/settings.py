@@ -25,3 +25,6 @@ TEMPLATE_DIRS = (
 INSTALLED_APPS = (
     'hashsignal',
 )
+INTERNAL_IPS = (
+    '127.0.0.1',
+)

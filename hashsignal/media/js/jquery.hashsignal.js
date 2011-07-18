@@ -155,7 +155,8 @@ Requires
     debug: false,
     disabled: false,
     resolverId: "hashsignal-abs",
-    inlineStylesheets: false
+    inlineStylesheets: false,
+    replaceBlocksOnError: false,
   };
 
 
@@ -474,7 +475,11 @@ Requires
       error: function(xhr, status, error) {
         log('updatePage error ' + status + " " + error);
         callbacks.errorUpdate(xhr, status, error);
-        history.back();
+        if (activeOpts.replaceBlocksOnError) {
+          makeSuccessor(expectedLocation)(xhr.responseText, status, xhr);
+        } else {
+          history.back();
+        }
       },
       success: makeSuccessor(expectedLocation),
       beforeSend: function(xhr) {

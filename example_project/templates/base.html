@@ -32,7 +32,7 @@
     <li><a href="/page/1/">Pages can have anchors; document.write doesn't kill.</a></li>
     <li><a href="/page/2/">Pages can have event lifecycles.</a></li>
     <li><a href="/page:3/">Pages can have any characters in their URLs.</a></li>
-    <li><a href="/error/">Server exceptions fire an event and stay on the prior page.</a></li>
+    <li><a href="/error/">Server exceptions fire an event. You can optionally stay on the prior page or load the error page normally. (Change settings.DEBUG to see alternate behavior.)</a></li>
     <li><a href="about:blank">Alternate scheme links work.</a></li>
     <li><a href="https://github.com/">So do off-site links.</a></li>
     <li><a href="/relatives/">And so do relative links.</a></li>
@@ -55,6 +55,7 @@
   <div id="spinner">Loading...</div>
 
   <script type="text/javascript">
+  var debug = {% if debug %}true{% else %}false{% endif %};
   $(document).ready(function(){
     // Hook up normal hash "scrollTo" behavior.
     $.hashsignal.hashchange(function(e, hash) {
@@ -75,15 +76,19 @@
         errorUpdate: function(xhr, status, error) {
           $("#spinner").hide();
           var reason;
-          //Only works with Django DEBUG=True
-          if (xhr.getResponseHeader('content-type') === 'text/html') {
-            reason = $(xhr.responseText).find(".exception_value").text();
+
+          if (debug) {
+            //Only works with Django DEBUG=True
+            if (xhr.getResponseHeader('content-type') === 'text/html') {
+              reason = $(xhr.responseText).find(".exception_value").text();
+            }
+            alert("Failed: (" + status + ") " +
+              (reason ? reason : "unknown")
+            );
           }
-          alert("Failed: (" + status + ") " +
-            (reason ? reason : "unknown")
-          );
         },
-        inlineStylesheets: true
+        inlineStylesheets: true,
+        replaceBlocksOnError: !debug
     });
   });
   </script>
